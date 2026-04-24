@@ -15,7 +15,7 @@
 | **Impact** | HIGH — Exploit Agent cannot function |
 | **Mitigation** | Health check before each run. Auto-restart script. Connection pooling with retry logic (3 attempts, exponential backoff) |
 | **Fallback** | Direct `msfconsole -x` subprocess calls with output parsing. Slower but functional |
-| **Owner** | Member C |
+| **Owner** | Vedant |
 | **Detection** | CI integration test against mock RPC. Runtime health check logs |
 
 ### T2: LLM Hallucination of Non-Existent Modules
@@ -27,7 +27,7 @@
 | **Impact** | Medium — wasted tokens, failed exploit attempt |
 | **Mitigation** | Validate ALL module names against `modules.search` before execution. Maintain allowlist of known-good modules. Track hallucination rate |
 | **Fallback** | SearchSploit lookup. If no exploit found, mark service as "no automated exploit available" and move to next |
-| **Owner** | Member A (prompt), Member C (validation) |
+| **Owner** | Prajyot (prompt), Vedant (validation) |
 | **Detection** | Hallucination counter in logs. Alert if rate >20% |
 
 ### T3: Ollama GPU Memory Exhaustion
@@ -39,7 +39,7 @@
 | **Impact** | Medium — local LLM calls fail, all traffic routes to cloud |
 | **Mitigation** | Use quantized models (Q4_K_M). Monitor VRAM usage. Set `num_gpu` layers appropriately. Kill other GPU processes |
 | **Fallback** | CPU-only inference (slower, ~10x latency). Or force cloud routing with budget warning |
-| **Owner** | Member A |
+| **Owner** | Prajyot |
 | **Detection** | Ollama error logs. VRAM monitoring in system metrics |
 
 ### T4: Nmap Scan Duration on Remote Targets
@@ -51,7 +51,7 @@
 | **Impact** | Low — delays but doesn't break pipeline |
 | **Mitigation** | Use targeted scans (`-p-` only for full eval, top-1000 for dev). Cache scan results. Parallel scan + parse |
 | **Fallback** | Reduce port range. Use previous scan cache for re-runs |
-| **Owner** | Member C |
+| **Owner** | Vedant |
 | **Detection** | Scan duration logged. Alert if >15 minutes |
 
 ### T5: NetworkX Graph Performance at Scale
@@ -63,7 +63,7 @@
 | **Impact** | Low — query latency increases |
 | **Mitigation** | Profile graph operations. Index critical queries. Lazy loading for large graphs |
 | **Fallback** | Switch to SQLAlchemy relational model if needed |
-| **Owner** | Member D |
+| **Owner** | Parth |
 | **Detection** | Graph size logged after each mutation. Performance benchmarks in tests |
 
 ### T6: LangGraph State Machine Infinite Loops
@@ -75,7 +75,7 @@
 | **Impact** | HIGH — system hangs, burns cloud tokens |
 | **Mitigation** | Hard step budget (MAX_TOTAL_STEPS=100). Per-service retry cap (3). Negative edge tracking (never retry same module+payload). Run-level timeout (30 min) |
 | **Fallback** | Kill process. Analyze attack graph post-mortem for loop cause |
-| **Owner** | Member B |
+| **Owner** | Vighnesh |
 | **Detection** | Step counter in orchestrator. Alert at 80% of budget |
 
 ### T7: NVD API Rate Limiting
@@ -87,7 +87,7 @@
 | **Impact** | Medium — CVE lookup fails, exploit selection degraded |
 | **Mitigation** | Request NVD API key (free, 50 req/30s). Aggressive caching (SQLite CVE cache). Batch queries |
 | **Fallback** | Local ExploitDB CSV via `searchsploit --json`. Slower but no rate limit |
-| **Owner** | Member C |
+| **Owner** | Vedant |
 | **Detection** | HTTP 429 responses logged. Cache hit rate monitored |
 
 ### T8: Python Dependency Conflicts
@@ -99,7 +99,7 @@
 | **Impact** | Medium — blocks development |
 | **Mitigation** | Pin all versions in requirements.txt. Use `pip-compile` for dependency resolution. Test in clean venv weekly |
 | **Fallback** | Isolate conflicting packages in separate venvs with subprocess calls |
-| **Owner** | Member B |
+| **Owner** | Vighnesh |
 | **Detection** | CI installs from clean venv every run |
 
 ---
@@ -139,7 +139,7 @@
 | **Impact** | HIGH — integration phase reveals incompatible interfaces |
 | **Mitigation** | Define interfaces (schemas, function signatures) in Phase 1. Integration tests from Phase 2. Weekly integration check |
 | **Fallback** | Emergency integration sprint with all members co-located |
-| **Owner** | Member B (integration lead) |
+| **Owner** | Vighnesh (integration lead) |
 | **Detection** | Integration tests failing. Merge conflicts increasing |
 
 ### P4: Exam/Academic Conflicts
@@ -179,7 +179,7 @@
 | **Impact** | HIGH — evaluation phase compressed or eliminated |
 | **Mitigation** | 2-week buffer per phase. Parallel work where possible (router + graph in Phase 2). MVP checkpoint at Week 12 |
 | **Fallback** | Reduce evaluation scope (5 targets × 3 conditions instead of 8 × 5). Frame as "preliminary evaluation" |
-| **Owner** | Member B (timeline tracker) |
+| **Owner** | Vighnesh (timeline tracker) |
 | **Detection** | Milestone dates tracked in GitHub Projects. Slippage visible in board |
 
 ### R3: Evaluation Infrastructure Failure
@@ -191,7 +191,7 @@
 | **Impact** | HIGH — cannot collect evaluation data |
 | **Mitigation** | Maintain local Metasploitable VMs as backup targets. Cache HTB machine data. Record all runs for reproducibility |
 | **Fallback** | Evaluate on AutoPenBench in-vitro tasks only (deterministic, local). Supplement with local vulnerable VMs |
-| **Owner** | Member C |
+| **Owner** | Vedant |
 | **Detection** | VPN connectivity test before evaluation sprint. HTB machine availability check |
 
 ---
@@ -207,7 +207,7 @@
 | **Impact** | Medium — budget exhausted, evaluation incomplete |
 | **Mitigation** | Per-run token budget (50K cloud tokens). Cost logged after each run. Optimize prompt length. Reserve cloud for high-complexity only |
 | **Fallback** | Switch to GPT-4o-mini for evaluation runs. Or Claude Haiku as cheaper alternative |
-| **Owner** | Member A |
+| **Owner** | Prajyot |
 | **Detection** | Cost dashboard updated daily during evaluation phase |
 
 ### L2: Model API Deprecation or Changes
@@ -219,7 +219,7 @@
 | **Impact** | Medium — need to switch models, recalibrate prompts |
 | **Mitigation** | Abstract LLM calls behind interface. Support multiple providers (OpenAI + Anthropic). Pin model version |
 | **Fallback** | Claude Sonnet as drop-in replacement. Test prompts on both providers in Phase 2 |
-| **Owner** | Member A |
+| **Owner** | Prajyot |
 | **Detection** | Monitor OpenAI/Anthropic announcements monthly |
 
 ### L3: Local Model Quality Insufficient
@@ -231,7 +231,7 @@
 | **Impact** | Medium — defeats purpose of hybrid routing |
 | **Mitigation** | Benchmark local models on pentest-specific tasks in Phase 1. Calibrate routing thresholds based on actual performance. Fine-tune prompts for local models |
 | **Fallback** | Raise complexity threshold (more goes to cloud). Or use Mistral 7B as alternative local model. Accept higher cloud costs |
-| **Owner** | Member A |
+| **Owner** | Prajyot |
 | **Detection** | Local model output quality scored in Phase 2 benchmarks |
 
 ### L4: Prompt Injection via Tool Output
@@ -243,7 +243,7 @@
 | **Impact** | Medium — LLM takes unintended actions |
 | **Mitigation** | Sanitize all tool output before passing to LLM. Separate system prompt from tool output. Validate LLM output against allowed actions |
 | **Fallback** | Hard-code allowed actions list. LLM can only suggest, never execute directly |
-| **Owner** | Member A (prompt), Member B (execution control) |
+| **Owner** | Prajyot (prompt), Vighnesh (execution control) |
 | **Detection** | Anomalous LLM outputs logged. Action validation in orchestrator |
 
 ---

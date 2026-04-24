@@ -128,39 +128,39 @@ OUTPUT FORMAT: {verification_result_schema}
 src/
 ├── agents/
 │   ├── __init__.py
-│   ├── recon_agent.py          # Member C owns
-│   ├── exploit_agent.py        # Member C owns
-│   ├── verification_agent.py   # Member D owns
-│   └── orchestrator.py         # Member B owns
+│   ├── recon_agent.py          # Vedant owns
+│   ├── exploit_agent.py        # Vedant owns
+│   ├── verification_agent.py   # Parth owns
+│   └── orchestrator.py         # Vighnesh owns
 ├── router/
 │   ├── __init__.py
-│   ├── llm_router.py           # Member A owns
-│   ├── sensitivity.py          # Member A owns
-│   └── complexity.py           # Member A owns
+│   ├── llm_router.py           # Prajyot owns
+│   ├── sensitivity.py          # Prajyot owns
+│   └── complexity.py           # Prajyot owns
 ├── state/
 │   ├── __init__.py
-│   ├── attack_graph.py         # Member D owns
-│   ├── persistence.py          # Member D owns
-│   └── schemas.py              # Member D owns
+│   ├── attack_graph.py         # Parth owns
+│   ├── persistence.py          # Parth owns
+│   └── schemas.py              # Parth owns
 ├── tools/
 │   ├── __init__.py
-│   ├── nmap_wrapper.py         # Member C owns
-│   ├── gobuster_wrapper.py     # Member C owns
-│   ├── metasploit_rpc.py       # Member C owns
-│   └── searchsploit.py         # Member C owns
+│   ├── nmap_wrapper.py         # Vedant owns
+│   ├── gobuster_wrapper.py     # Vedant owns
+│   ├── metasploit_rpc.py       # Vedant owns
+│   └── searchsploit.py         # Vedant owns
 ├── reporting/
 │   ├── __init__.py
-│   ├── report_generator.py     # Member D owns
+│   ├── report_generator.py     # Parth owns
 │   └── templates/
 ├── config/
 │   ├── __init__.py
 │   ├── settings.py
-│   └── prompts.py              # Member A owns
+│   └── prompts.py              # Prajyot owns
 ├── utils/
 │   ├── __init__.py
-│   ├── logging_config.py       # Member D owns
+│   ├── logging_config.py       # Parth owns
 │   └── validators.py
-└── main.py                     # Member B owns
+└── main.py                     # Vighnesh owns
 tests/
 ├── unit/
 ├── integration/

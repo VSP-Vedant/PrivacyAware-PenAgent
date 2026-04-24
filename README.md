@@ -201,10 +201,10 @@ tests/
 
 | Role | Member | Responsibility |
 |------|--------|---------------|
-| Member A | TBD | LLM/AI — Router, prompts, benchmarking |
-| Member B | TBD | Backend — LangGraph, orchestration |
+| Member A | **Prajyot** | LLM/AI — Router, prompts, benchmarking |
+| Member B | **Vighnesh** | Backend — LangGraph, orchestration |
 | Member C | **Vedant** | Security Lead — Nmap, Metasploit, exploits, evaluation |
-| Member D | TBD | Data — Attack graph, persistence, reports |
+| Member D | **Parth** | Data — Attack graph, persistence, reports |
 
 ---
 

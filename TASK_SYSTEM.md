@@ -142,7 +142,7 @@ Subtasks:
 #### Task 1.2: Ollama + Local LLM Setup
 ```
 Title: [FEAT] Install Ollama and pull Llama3 8B + Mistral 7B
-Owner: Member A
+Owner: Prajyot
 Size: M (4-8h)
 
 Acceptance Criteria:
@@ -157,7 +157,7 @@ Acceptance Criteria:
 #### Task 1.3: LangGraph Skeleton
 ```
 Title: [FEAT] Implement LangGraph state graph skeleton
-Owner: Member B
+Owner: Vighnesh
 Size: L (1-2 days)
 
 Acceptance Criteria:
@@ -173,7 +173,7 @@ Acceptance Criteria:
 #### Task 2.1: Nmap XML Parser
 ```
 Title: [FEAT] Implement Nmap XML parser with service extraction
-Owner: Member C
+Owner: Vedant
 Size: M (4-8h)
 
 Acceptance Criteria:
@@ -187,7 +187,7 @@ Acceptance Criteria:
 #### Task 2.2: Attack Graph Core
 ```
 Title: [FEAT] Implement NetworkX attack graph with SQLite persistence
-Owner: Member D
+Owner: Parth
 Size: XL (3-5 days)
 
 Acceptance Criteria:
@@ -205,7 +205,7 @@ Acceptance Criteria:
 #### Task 3.1: Metasploit RPC Integration
 ```
 Title: [FEAT] Implement Metasploit RPC wrapper
-Owner: Member C
+Owner: Vedant
 Size: L (1-2 days)
 
 Acceptance Criteria:
@@ -220,7 +220,7 @@ Acceptance Criteria:
 #### Task 3.2: Exploit Selection Prompt
 ```
 Title: [FEAT] Design and test exploit selection prompt template
-Owner: Member A
+Owner: Prajyot
 Size: M (4-8h)
 
 Acceptance Criteria:

@@ -60,7 +60,7 @@ Seven interconnected modules. All agent-to-agent communication flows through Lan
 
 ### 2.1 Orchestrator (LangGraph)
 
-**Owner:** Member B
+**Owner:** Vighnesh (Member B)
 **File:** `src/agents/orchestrator.py`
 
 The Orchestrator is the root LangGraph `StateGraph`. It defines:
@@ -113,7 +113,7 @@ START → recon → analyze_graph
 
 ### 2.2 Recon Agent
 
-**Owner:** Member C
+**Owner:** Vedant (Member C)
 **File:** `src/agents/recon_agent.py`
 **Dependencies:** `src/tools/nmap_wrapper.py`, `src/tools/gobuster_wrapper.py`
 
@@ -152,7 +152,7 @@ class ReconResult:
 
 ### 2.3 Exploit Agent
 
-**Owner:** Member C (tool wrappers), Member A (LLM prompting)
+**Owner:** Vedant (Member C, tool wrappers), Prajyot (Member A, LLM prompting)
 **File:** `src/agents/exploit_agent.py`
 **Dependencies:** `src/tools/metasploit_rpc.py`, `src/tools/searchsploit.py`
 
@@ -186,7 +186,7 @@ class ReconResult:
 
 ### 2.4 LLM Router
 
-**Owner:** Member A
+**Owner:** Prajyot (Member A)
 **File:** `src/router/llm_router.py`
 **Dependencies:** `src/router/sensitivity.py`, `src/router/complexity.py`
 
@@ -229,7 +229,7 @@ def route(task_input: str, task_type: TaskType) -> RoutingDecision:
 
 ### 2.5 Attack Graph Manager
 
-**Owner:** Member D
+**Owner:** Parth (Member D)
 **File:** `src/state/attack_graph.py`
 **Dependencies:** `src/state/persistence.py`, `src/state/schemas.py`
 
@@ -275,7 +275,7 @@ def get_privilege_level(self) -> str  # "none" | "user" | "root"
 
 ### 2.6 Verification Agent
 
-**Owner:** Member D (implementation), Member B (integration)
+**Owner:** Parth (Member D, implementation), Vighnesh (Member B, integration)
 **File:** `src/agents/verification_agent.py`
 
 **Responsibilities:**
@@ -308,7 +308,7 @@ class ExploitPostMortem:
 
 ### 2.7 Reporting Agent
 
-**Owner:** Member D
+**Owner:** Parth (Member D)
 **File:** `src/reporting/report_generator.py`
 
 Generates structured report from attack graph:

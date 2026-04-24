@@ -5,7 +5,7 @@
 
 ---
 
-## Member A — LLM/AI Lead
+## Member A (Prajyot) — LLM/AI Lead
 
 ### Responsibilities (OWNS)
 
@@ -49,12 +49,12 @@
 ### Failure Triggers
 
 - Router misroutes sensitive data to cloud in production run → immediate fix required
-- No benchmark data by Week 6 → pair with Member C for catch-up
+- No benchmark data by Week 6 → pair with Vedant for catch-up
 - Cost tracking not functional by Week 18 → evaluation cannot proceed
 
 ---
 
-## Member B — Backend/Orchestration Lead
+## Member B (Vighnesh) — Backend/Orchestration Lead
 
 ### Responsibilities (OWNS)
 
@@ -153,7 +153,7 @@
 
 ---
 
-## Member D — Data/State/Reporting Lead
+## Member D (Parth) — Data/State/Reporting Lead
 
 ### Responsibilities (OWNS)
 

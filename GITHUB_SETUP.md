@@ -114,10 +114,10 @@ action: close linked issue
 | `phase-4` | `#D93F0B` | Phase 4 work |
 | `phase-5` | `#FBCA04` | Phase 5 work |
 | `phase-6` | `#B60205` | Phase 6 work |
-| `member-a` | `#C5DEF5` | Assigned to Member A |
-| `member-b` | `#BFD4F2` | Assigned to Member B |
-| `member-c` | `#D4C5F9` | Assigned to Member C |
-| `member-d` | `#F9D0C4` | Assigned to Member D |
+| `member-a` | `#C5DEF5` | Assigned to Prajyot |
+| `member-b` | `#BFD4F2` | Assigned to Vighnesh |
+| `member-c` | `#D4C5F9` | Assigned to Vedant |
+| `member-d` | `#F9D0C4` | Assigned to Parth |
 | `blocked` | `#E4E669` | Blocked by dependency |
 | `critical` | `#B60205` | Must fix immediately |
 | `security` | `#D93F0B` | Security-related |
@@ -153,10 +153,10 @@ body:
     attributes:
       label: Primary Owner
       options:
-        - Member A (LLM/AI)
-        - Member B (Backend)
-        - Member C (Security)
-        - Member D (Data/State)
+        - Prajyot (LLM/AI)
+        - Vighnesh (Backend)
+        - Vedant (Security)
+        - Parth (Data/State)
     validations:
       required: true
   - type: textarea
@@ -344,12 +344,12 @@ Closes #
 
 | Author | Required Reviewer(s) |
 |--------|---------------------|
-| Member A | Member B + one of C/D |
-| Member B | Member A + one of C/D |
-| Member C | Member B + one of A/D |
-| Member D | Member B + one of A/C |
+| Prajyot (A) | Vighnesh + one of Vedant/Parth |
+| Vighnesh (B) | Prajyot + one of Vedant/Parth |
+| Vedant (C) | Vighnesh + one of Prajyot/Parth |
+| Parth (D) | Vighnesh + one of Prajyot/Vedant |
 
-Rule: **Author cannot approve their own PR. Member B reviews all integration-related PRs.**
+Rule: **Author cannot approve their own PR. Vighnesh reviews all integration-related PRs.**
 
 ---
 

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE nmaprun>
+<nmaprun scanner="nmap" args="nmap -sV -sC -oX nmap_sample.xml 10.10.10.5" start="1716000000" startstr="Thu May 18 00:00:00 2025" version="7.94" xmloutputversion="1.05">
+  <scaninfo type="connect" protocol="tcp" numservices="1000" services="1-1000"/>
+  <host starttime="1716000001" endtime="1716000060">
+    <status state="up" reason="syn-ack" reason_ttl="63"/>
+    <address addr="10.10.10.5" addrtype="ipv4"/>
+    <hostnames>
+      <hostname name="htb-target.htb" type="PTR"/>
+    </hostnames>
+    <ports>
+      <port protocol="tcp" portid="22">
+        <state state="open" reason="syn-ack" reason_ttl="63"/>
+        <service name="ssh" product="OpenSSH" version="8.9p1" extrainfo="Ubuntu Linux; protocol 2.0" method="probed" conf="10"/>
+      </port>
+      <port protocol="tcp" portid="80">
+        <state state="open" reason="syn-ack" reason_ttl="63"/>
+        <service name="http" product="Apache httpd" version="2.4.52" extrainfo="(Ubuntu)" method="probed" conf="10"/>
+      </port>
+      <port protocol="tcp" portid="443">
+        <state state="open" reason="syn-ack" reason_ttl="63"/>
+        <service name="https" product="nginx" version="1.18.0" extrainfo="(Ubuntu)" method="probed" conf="10"/>
+      </port>
+    </ports>
+    <os>
+      <osmatch name="Linux 5.4" accuracy="96">
+        <osclass type="general purpose" vendor="Linux" osfamily="Linux" osgen="5.X" accuracy="96"/>
+      </osmatch>
+    </os>
+    <times srtt="45000" rttvar="5000" to="100000"/>
+  </host>
+  <runstats>
+    <finished time="1716000060" timestr="Thu May 18 00:01:00 2025" summary="Nmap done at Thu May 18 00:01:00 2025; 1 IP address (1 host up) scanned in 59.00 seconds" elapsed="59.00" exit="success"/>
+    <hosts up="1" down="0" total="1"/>
+  </runstats>
+</nmaprun>

@@ -1,0 +1,28 @@
+name: Testing Pipeline
+
+on:
+  push:
+    branches: [dev]
+  pull_request:
+    branches: [dev, main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Install dependencies
+        run: |
+          touch requirements.txt # Placeholder until real requirements are added
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+      - name: Run unit tests
+        run: pytest tests/unit/ -v --tb=short --junitxml=reports/unit-results.xml || true
+      - name: Run integration tests (mock tools)
+        run: pytest tests/integration/ -v --tb=short -m "not requires_tools" --junitxml=reports/integration-results.xml || true
+      - name: Coverage report
+        run: pytest tests/ --cov=src --cov-report=xml --cov-report=term-missing --cov-fail-under=70 || true

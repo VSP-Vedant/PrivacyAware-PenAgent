@@ -1,1 +1,1 @@
-# PrivacyAware-PenAgent — tools package
+"""Tool wrappers for Nmap, Gobuster, Metasploit, and Searchsploit."""

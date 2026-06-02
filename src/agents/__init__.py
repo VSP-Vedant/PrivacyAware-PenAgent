@@ -1,1 +1,1 @@
-"""Agent modules — recon, exploit, reporting, and orchestration agents."""
+"""Agent modules — recon, exploit, reporting, and LangGraph orchestration."""

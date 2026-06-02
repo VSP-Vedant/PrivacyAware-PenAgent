@@ -1,1 +1,1 @@
-# PrivacyAware-PenAgent — src package
+"""Source code package for PrivacyAware-PenAgent."""

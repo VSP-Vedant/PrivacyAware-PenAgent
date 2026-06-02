@@ -1,1 +1,1 @@
-"""Shared state definitions for the LangGraph workflow."""
+"""Attack graph state management, LangGraph workflow state, and SQLite persistence."""

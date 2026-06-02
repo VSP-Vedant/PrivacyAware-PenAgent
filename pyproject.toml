@@ -38,6 +38,8 @@ addopts = "-v --tb=short --strict-markers"
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "integration: marks integration tests requiring external services",
+    "requires_tools: needs real tools (Nmap, MSF)",
+    "e2e: end-to-end tests",
 ]
 
 [tool.coverage.run]

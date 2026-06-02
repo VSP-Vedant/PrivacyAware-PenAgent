@@ -1,1 +1,1 @@
-# PrivacyAware-PenAgent — utils package
+"""Utility functions, logging configuration, and input validators."""

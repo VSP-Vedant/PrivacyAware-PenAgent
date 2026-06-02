@@ -1,0 +1,35 @@
+name: Security Checks
+
+on:
+  push:
+    branches: [dev]
+  pull_request:
+    branches: [dev, main]
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Install dependencies
+        run: touch requirements.txt && pip install -r requirements.txt
+      - name: Dependency vulnerability scan (pip-audit)
+        run: |
+          pip install pip-audit
+          pip-audit --strict --desc || true
+      - name: Secrets detection (trufflehog)
+        uses: trufflesecurity/trufflehog@main
+        with:
+          extra_args: --only-verified
+      - name: Bandit security linting
+        run: |
+          pip install bandit
+          mkdir -p reports
+          bandit -r src/ -ll -ii --format json -o reports/bandit-report.json || true
+          bandit -r src/ -ll -ii || true
+      - name: Check for hardcoded IPs outside allowed ranges
+        run: python scripts/check_hardcoded_ips.py src/ || true

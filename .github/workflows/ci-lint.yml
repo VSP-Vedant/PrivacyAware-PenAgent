@@ -1,0 +1,29 @@
+name: Code Validation
+
+on:
+  push:
+    branches: [dev]
+  pull_request:
+    branches: [dev, main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+      - name: Black formatting check
+        run: black --check --diff src/ tests/
+      - name: Flake8 linting
+        run: flake8 src/ tests/ --max-line-length=88 --extend-ignore=E203,W503 --statistics
+      - name: isort import sorting
+        run: isort --check-only --diff --profile black src/ tests/
+      - name: mypy type checking
+        run: mypy src/ --ignore-missing-imports --strict
+      - name: pydocstyle docstring check
+        run: pydocstyle src/ --convention=google --match='(?!test_).*\.py'

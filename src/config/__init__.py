@@ -1,1 +1,1 @@
-"""Configuration loading and validation."""
+"""Configuration loading, validation, and prompt templates."""

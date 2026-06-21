@@ -1,0 +1,79 @@
+{
+  "timestamp": "20260620_1057",
+  "models_tested": [
+    "llama3:8b",
+    "mistral:7b"
+  ],
+  "results": [
+    {
+      "model": "llama3:8b",
+      "prompt_preview": "Summarize the following Nmap scan result: Open ports 22, 80, 445 on target 10.10...",
+      "response_preview": "The Nmap scan result is indicating that the target IP address `10.10.10.5` has the following open ports:\n\n1. **Port 22**: This is the SSH (Secure Shel...",
+      "latency_seconds": 76.48,
+      "success": true
+    },
+    {
+      "model": "llama3:8b",
+      "prompt_preview": "Suggest best Metasploit module for vsftpd 2.3.4 vulnerability",
+      "response_preview": "A classic!\n\nThe vsftpd (Very Secure FTP Daemon) version 2.3.4 has a known vulnerability, which is a stack-based buffer overflow in the `vsftpd_ ftp_lo...",
+      "latency_seconds": 122.11,
+      "success": true
+    },
+    {
+      "model": "llama3:8b",
+      "prompt_preview": "Analyze this service: Apache 2.4.41 with CVE-2021-41773",
+      "response_preview": "A juicy vulnerability!\n\nThe service you're referring to is Apache HTTP Server version 2.4.41, which has a known vulnerability identified as CVE-2021-4...",
+      "latency_seconds": 200.81,
+      "success": true
+    },
+    {
+      "model": "llama3:8b",
+      "prompt_preview": "Generate post-mortem for failed exploit: no session opened after using eternalbl...",
+      "response_preview": "**Post-Mortem Analysis of Failed EternalBlue Exploit Attempt**\n\n**Introduction**\n\nThis post-mortem analysis aims to identify the root causes and lesso...",
+      "latency_seconds": 232.11,
+      "success": true
+    },
+    {
+      "model": "llama3:8b",
+      "prompt_preview": "What are safe next steps after gaining www-data shell on Linux target?",
+      "response_preview": "The eternal quest for a secure shell!\n\nCongratulations on gaining a `www-data` shell on a Linux target! This is a great starting point, but it's essen...",
+      "latency_seconds": 197.76,
+      "success": true
+    },
+    {
+      "model": "mistral:7b",
+      "prompt_preview": "Summarize the following Nmap scan result: Open ports 22, 80, 445 on target 10.10...",
+      "response_preview": " The Nmap scan of the target IP address 10.10.10.5 has identified three open ports:\n\n1. Port 22 (SSH) - This is a common port for remote login to Unix...",
+      "latency_seconds": 105.29,
+      "success": true
+    },
+    {
+      "model": "mistral:7b",
+      "prompt_preview": "Suggest best Metasploit module for vsftpd 2.3.4 vulnerability",
+      "response_preview": " For the specific vulnerability in vsftpd version 2.3.4 (CVE-2013-2561), the Metasploit module you would be interested in is `vsftpd_ftp_writearbitrar...",
+      "latency_seconds": 101.9,
+      "success": true
+    },
+    {
+      "model": "mistral:7b",
+      "prompt_preview": "Analyze this service: Apache 2.4.41 with CVE-2021-41773",
+      "response_preview": " The service you're referring to is Apache HTTP Server version 2.4.41, which contains a vulnerability identified as CVE-2021-41773.\n\nCVE (Common Vulne...",
+      "latency_seconds": 87.66,
+      "success": true
+    },
+    {
+      "model": "mistral:7b",
+      "prompt_preview": "Generate post-mortem for failed exploit: no session opened after using eternalbl...",
+      "response_preview": " Title: Post-Mortem Analysis of EternalBlue Exploit Failure - No Session Opened\n\n1. Executive Summary:\n\nThis post-mortem report documents the investig...",
+      "latency_seconds": 335.89,
+      "success": true
+    },
+    {
+      "model": "mistral:7b",
+      "prompt_preview": "What are safe next steps after gaining www-data shell on Linux target?",
+      "response_preview": " Gaining a shell as the `www-data` user on a Linux system often indicates that you've compromised a web server. Here are some safe next steps to minim...",
+      "latency_seconds": 143.26,
+      "success": true
+    }
+  ]
+}

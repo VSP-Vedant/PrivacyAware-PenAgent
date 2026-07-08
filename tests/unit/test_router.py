@@ -7,19 +7,19 @@ from src.router.llm_router import route
 
 def test_router_low_risk():
     decision = route("Normal service summary", "SUMMARIZE")
-    assert decision["route"] == "LOCAL"
-    assert decision["model"] == "llama3:8b"
+    assert decision.route == "LOCAL"
+    assert decision.model == "llama3:8b"
 
 
 def test_router_high_sensitivity():
     decision = route("Session token abc123 and IP 10.129.1.100", "PRIV_ESC_REASONING")
-    assert decision["route"] == "CLOUD"
-    assert decision["model"] == "gpt-4o"
+    assert decision.route == "CLOUD"
+    assert decision.model == "gpt-4o"
 
 
 def test_router_high_complexity():
     decision = route("Plan multi-CVE chain", "MULTI_CVE_CHAIN")
-    assert decision["route"] == "CLOUD"
+    assert decision.route == "CLOUD"
 
 
 def test_sensitivity_scoring():

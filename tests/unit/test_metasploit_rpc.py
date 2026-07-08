@@ -150,12 +150,15 @@ class TestMetasploitRPCClient:
     def test_validate_target_before_exploit(self) -> None:
         """Test exploit execution rejects blocked targets."""
         client = MetasploitRPCClient()
+        client._client = MagicMock()  # Mock client to bypass connection check
         options = ExploitOptions(
             rhosts="8.8.8.8",
             rport=445,
             payload="windows/x64/meterpreter/reverse_tcp",
         )
-        with pytest.raises(MetasploitRPCError):
+        with pytest.raises(
+            MetasploitModuleError, match="OUTSIDE allowed ranges"
+        ):
             client.execute_exploit(
                 "exploit/windows/smb/ms17_010_eternalblue",
                 options,
@@ -164,10 +167,14 @@ class TestMetasploitRPCClient:
     def test_context_manager(self) -> None:
         """Test MetasploitRPCClient context manager protocol."""
         client = MetasploitRPCClient()
-        # __enter__ should return self
-        assert client.__enter__() is client
-        # __exit__ should not raise
-        client.__exit__(None, None, None)
+        with patch.object(client, "connect") as mock_connect, \
+             patch.object(client, "disconnect") as mock_disconnect:
+            # __enter__ should return self
+            assert client.__enter__() is client
+            mock_connect.assert_called_once()
+            # __exit__ should not raise
+            client.__exit__(None, None, None)
+            mock_disconnect.assert_called_once()
 
     def test_exception_hierarchy(self) -> None:
         """Test custom exception inheritance chain."""

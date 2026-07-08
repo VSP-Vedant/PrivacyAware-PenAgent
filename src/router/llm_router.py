@@ -34,17 +34,17 @@ class RoutingDecision(NamedTuple):
 
 def route(task_input: str, task_type: str) -> RoutingDecision:
     """Main routing decision logic per ARCHITECTURE.md."""
+    global route_type  # Declare global before any use or assignment
+
     sensitivity = classify_sensitivity(task_input)
     complexity = classify_complexity(task_type)
 
     if sensitivity > SENSITIVITY_THRESHOLD or complexity > COMPLEXITY_THRESHOLD:
         model = "gpt-4o"
-        global route_type
         route_type = "CLOUD"
         reasoning = f"High sensitivity ({sensitivity}) or complexity ({complexity})"
     else:
         model = "llama3:8b"
-        global route_type
         route_type = "LOCAL"
         reasoning = f"Low risk task (sens={sensitivity}, comp={complexity})"
 

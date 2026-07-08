@@ -77,7 +77,7 @@ class PersistenceManager:
                     conn.commit()
             logger.debug("Successfully saved graph state to database.")
         except Exception as e:
-            logger.error("Failed to save graph state", extra_data={"error": str(e)})
+            logger.error("Failed to save graph state", extra={"extra_data": {"error": str(e)}})
 
     def load_graph(self) -> nx.DiGraph | None:
         """Load and deserialize the NetworkX graph from SQLite."""
@@ -92,7 +92,7 @@ class PersistenceManager:
                         logger.debug("Successfully loaded graph state from database.")
                         return nx.node_link_graph(data)
         except Exception as e:
-            logger.error("Failed to load graph state", extra_data={"error": str(e)})
+            logger.error("Failed to load graph state", extra={"extra_data": {"error": str(e)}})
         return None
 
     def record_exploit_attempt(self, attempt: ExploitAttempt) -> None:
@@ -120,4 +120,4 @@ class PersistenceManager:
                     )
                     conn.commit()
         except Exception as e:
-            logger.error("Failed to record exploit attempt", extra_data={"error": str(e)})
+            logger.error("Failed to record exploit attempt", extra={"extra_data": {"error": str(e)}})

@@ -71,7 +71,6 @@ def test_exploit_node_with_exploitable(
     svc = ServiceNode(host_ip="10.10.10.10", port=21, protocol="tcp", name="ftp")
     empty_state["attack_graph"].get_exploitable_services = MagicMock(return_value=[svc])
 
-
     # Setup mock
     mock_instance = MagicMock()
     mock_result = MagicMock()

@@ -81,7 +81,7 @@ def main() -> None:
         # Save persistence
         db_path = f"runs/{args.target.replace('.', '_')}_{int(time.time())}.db"
         pm = PersistenceManager(db_path=db_path)
-        pm.save_graph(final_state["attack_graph"])
+        pm.save_graph(final_state["attack_graph"].graph)
 
     except Exception as e:
         logger.error("Graph execution failed", extra={"error": str(e)}, exc_info=True)

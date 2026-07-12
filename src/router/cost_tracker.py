@@ -18,6 +18,7 @@ CLOUD_COST_PER_1M_OUTPUT_TOKENS = 0.06
 
 class CostEntry(TypedDict):
     """Docstring."""
+
     model: str
     input_tokens: int
     output_tokens: int
@@ -28,6 +29,7 @@ class CostEntry(TypedDict):
 
 class CostTracker:
     """Docstring."""
+
     def __init__(self) -> None:
         """Docstring."""
         self.entries: list[CostEntry] = []

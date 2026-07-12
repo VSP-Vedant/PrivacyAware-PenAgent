@@ -62,7 +62,7 @@ class LLMClient:
                 timeout=30,
             )
             resp.raise_for_status()
-            return resp.json()["choices"][0]["message"]["content"]
+            return str(resp.json()["choices"][0]["message"]["content"])
         except Exception as e:
             logger.error("OpenAI API call failed: %s", e)
             return self._mock_response()
@@ -92,7 +92,7 @@ class LLMClient:
                 timeout=30,
             )
             resp.raise_for_status()
-            return resp.json()["content"][0]["text"]
+            return str(resp.json()["content"][0]["text"])
         except Exception as e:
             logger.error("Anthropic API call failed: %s", e)
             return self._mock_response()
@@ -109,7 +109,7 @@ class LLMClient:
         try:
             resp = requests.post(url, json=data, timeout=60)
             resp.raise_for_status()
-            return resp.json()["response"]
+            return str(resp.json()["response"])
         except Exception as e:
             logger.error("Ollama API call failed: %s", e)
             return self._mock_response()

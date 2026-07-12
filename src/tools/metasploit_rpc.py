@@ -232,6 +232,7 @@ class MetasploitRPCClient:
             logger.warning("health_check called without connection")
             return False
         try:
+            assert self._client is not None
             _version = self._client.core.version
             logger.debug(f"msfrpcd health OK: {_version}")
             return True
@@ -255,6 +256,7 @@ class MetasploitRPCClient:
             MetasploitConnectionError: If not connected.
         """
         self._require_connection()
+        assert self._client is not None
         try:
             self._client.modules.use("exploit", module_path)
             return True
@@ -280,6 +282,7 @@ class MetasploitRPCClient:
             MetasploitConnectionError: If not connected.
         """
         self._require_connection()
+        assert self._client is not None
         results: list[MsfModule] = []
         try:
             raw_modules = self._client.modules.search(query)
@@ -328,6 +331,7 @@ class MetasploitRPCClient:
                 the target is outside allowed ranges.
         """
         self._require_connection()
+        assert self._client is not None
 
         # --- target-scope gate ---------------------------------------------
         if not validate_target(options.rhosts):
@@ -419,6 +423,7 @@ class MetasploitRPCClient:
             MetasploitConnectionError: If not connected.
         """
         self._require_connection()
+        assert self._client is not None
         sessions: list[SessionInfo] = []
         try:
             raw = self._client.sessions.list
@@ -457,6 +462,7 @@ class MetasploitRPCClient:
             MetasploitRPCError: On session interaction failure.
         """
         self._require_connection()
+        assert self._client is not None
         logger.info(f"Running command in session {session_id}: " f"{command!r}")
         try:
             shell = self._client.sessions.session(str(session_id))
@@ -497,6 +503,7 @@ class MetasploitRPCClient:
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             try:
+                assert self._client is not None
                 raw = self._client.sessions.list
                 for sid, info in raw.items():
                     if info.get("target_host") == target:

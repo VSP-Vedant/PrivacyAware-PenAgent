@@ -145,7 +145,7 @@ class NmapWrapper:
             )
 
         try:
-            import nmap  # type: ignore[import-untyped]
+            import nmap
         except ImportError as exc:
             raise NmapScanError(
                 "python-nmap not installed. " "Run: pip install python-nmap"
@@ -232,7 +232,7 @@ class NmapWrapper:
             raise NmapScanError(f"XML file not found: {xml_path}")
 
         try:
-            import nmap  # type: ignore[import-untyped]
+            import nmap
         except ImportError as exc:
             raise NmapScanError("python-nmap not installed") from exc
 

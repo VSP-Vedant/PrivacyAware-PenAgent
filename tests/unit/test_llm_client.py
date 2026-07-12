@@ -1,4 +1,3 @@
-from typing import Any
 """Tests for LLMClient. Member A."""
 
 from unittest.mock import MagicMock, patch
@@ -10,16 +9,16 @@ from src.router.llm_router import RoutingDecision
 
 
 @pytest.fixture
-def client() -> Any:
+def client() -> LLMClient:
     return LLMClient()
 
 
-def test_generate_cloud_openai(client) -> None:
+def test_generate_cloud_openai(client: LLMClient) -> None:
     decision = RoutingDecision(
         route="CLOUD",
         model="gpt-4",
-        sensitivity="low",
-        complexity="low",
+        sensitivity=0.3,
+        complexity=0.3,
         reasoning="test",
     )
     with patch("src.router.llm_client.requests.post") as mock_post:
@@ -35,12 +34,12 @@ def test_generate_cloud_openai(client) -> None:
             assert "Mocked LLM fallback response" in res
 
 
-def test_generate_cloud_anthropic(client) -> None:
+def test_generate_cloud_anthropic(client: LLMClient) -> None:
     decision = RoutingDecision(
         route="CLOUD",
         model="claude-3-opus",
-        sensitivity="low",
-        complexity="low",
+        sensitivity=0.3,
+        complexity=0.3,
         reasoning="test",
     )
     with patch("src.router.llm_client.requests.post") as mock_post:
@@ -54,12 +53,12 @@ def test_generate_cloud_anthropic(client) -> None:
             assert "Mocked LLM fallback response" in res
 
 
-def test_generate_local_ollama(client) -> None:
+def test_generate_local_ollama(client: LLMClient) -> None:
     decision = RoutingDecision(
         route="LOCAL",
         model="llama3",
-        sensitivity="low",
-        complexity="low",
+        sensitivity=0.3,
+        complexity=0.3,
         reasoning="test",
     )
     with patch("src.router.llm_client.requests.post") as mock_post:

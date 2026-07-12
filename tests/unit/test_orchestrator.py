@@ -1,7 +1,5 @@
 """Tests for Orchestrator (Member B)."""
 
-from typing import Any
-
 import pytest
 
 from src.agents.orchestrator import (
@@ -34,15 +32,15 @@ def empty_state() -> PenTestState:
     }
 
 
-def test_has_exploitable(empty_state) -> None:
+def test_has_exploitable(empty_state: PenTestState) -> None:
     assert has_exploitable(empty_state) == "report"
 
 
-def test_check_success_empty(empty_state) -> None:
+def test_check_success_empty(empty_state: PenTestState) -> None:
     assert check_success(empty_state) == "report"
 
 
-def test_check_success_with_success(empty_state) -> None:
+def test_check_success_with_success(empty_state: PenTestState) -> None:
     empty_state["exploit_attempts"].append(
         ExploitAttempt(
             target_service_id="svc-1",
@@ -54,14 +52,14 @@ def test_check_success_with_success(empty_state) -> None:
     assert check_success(empty_state) == "report"
 
 
-def test_check_success_with_failure(empty_state) -> None:
+def test_check_success_with_failure(empty_state: PenTestState) -> None:
     empty_state["exploit_attempts"].append(
         ExploitAttempt(target_service_id="svc-1", module_used="test", result="failure")
     )
     assert check_success(empty_state) == "replan"
 
 
-def test_check_success_max_steps(empty_state) -> None:
+def test_check_success_max_steps(empty_state: PenTestState) -> None:
     for i in range(10):
         empty_state["exploit_attempts"].append(
             ExploitAttempt(

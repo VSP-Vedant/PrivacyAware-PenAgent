@@ -126,7 +126,7 @@ def check_success(state: PenTestState) -> Literal["report", "replan"]:
     return "replan"
 
 
-def build_graph() -> CompiledStateGraph:
+def build_graph() -> CompiledStateGraph:  # type: ignore[type-arg]
     """Build and compile the LangGraph."""
     workflow = StateGraph(PenTestState)
 

@@ -17,20 +17,10 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from src.state.attack_graph import AttackGraph
-from src.state.schemas import (
-    EdgeType,
-    HostNode,
-    ServiceNode,
-    WebEndpointNode,
-)
+from src.state.schemas import EdgeType, HostNode, ServiceNode, WebEndpointNode
 from src.tools.cve_mapper import CVECandidate, CVEMapper
 from src.tools.gobuster_wrapper import GobusterError, GobusterWrapper, WebEndpoint
-from src.tools.nmap_wrapper import (
-    HostInfo,
-    NmapScanResult,
-    NmapWrapper,
-    ServiceInfo,
-)
+from src.tools.nmap_wrapper import HostInfo, NmapScanResult, NmapWrapper, ServiceInfo
 
 logger = logging.getLogger(__name__)
 

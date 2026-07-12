@@ -2,11 +2,7 @@
 
 import pytest
 
-from src.agents.orchestrator import (
-    build_graph,
-    check_success,
-    has_exploitable,
-)
+from src.agents.orchestrator import build_graph, check_success, has_exploitable
 from src.state.attack_graph import AttackGraph
 from src.state.schemas import ExploitAttempt, PenTestState
 

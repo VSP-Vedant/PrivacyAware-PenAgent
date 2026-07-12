@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+from typing import Any
 
 import requests
 
@@ -45,7 +46,7 @@ class LLMClient:
             "Authorization": f"Bearer {OPENAI_API_KEY}",
             "Content-Type": "application/json",
         }
-        data = {
+        data: dict[str, Any] = {
             "model": model,
             "messages": [{"role": "user", "content": prompt}],
             "temperature": 0.1,
@@ -75,7 +76,7 @@ class LLMClient:
             "anthropic-version": "2023-06-01",
             "content-type": "application/json",
         }
-        data = {
+        data: dict[str, Any] = {
             "model": model,
             "max_tokens": 1024,
             "messages": [{"role": "user", "content": prompt}],
@@ -97,7 +98,7 @@ class LLMClient:
         """Call local Ollama API."""
         logger.info("Calling local Ollama with model %s", model)
         url = f"{OLLAMA_HOST}/api/generate"
-        data = {
+        data: dict[str, Any] = {
             "model": model,
             "prompt": prompt,
             "stream": False,

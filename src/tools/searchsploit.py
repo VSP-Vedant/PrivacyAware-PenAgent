@@ -85,14 +85,10 @@ class SearchSploitWrapper:
                 subprocess fails.
         """
         if not query or not query.strip():
-            raise SearchSploitError(
-                "Search query must not be empty"
-            )
+            raise SearchSploitError("Search query must not be empty")
 
         if not self.is_available():
-            raise SearchSploitError(
-                "searchsploit binary not found on PATH"
-            )
+            raise SearchSploitError("searchsploit binary not found on PATH")
 
         cmd = self._build_command(query, exact=exact)
         logger.info(
@@ -111,9 +107,7 @@ class SearchSploitWrapper:
                 check=False,
             )
         except subprocess.TimeoutExpired as exc:
-            raise SearchSploitError(
-                "searchsploit timed out after 60s"
-            ) from exc
+            raise SearchSploitError("searchsploit timed out after 60s") from exc
 
         if proc.returncode != 0 and not proc.stdout:
             raise SearchSploitError(
@@ -171,9 +165,7 @@ class SearchSploitWrapper:
                 f"Failed to parse searchsploit JSON output: {exc}"
             ) from exc
 
-        exploits_raw = data.get(
-            "RESULTS_EXPLOIT", data.get("results", [])
-        )
+        exploits_raw = data.get("RESULTS_EXPLOIT", data.get("results", []))
         results: list[ExploitResult] = []
 
         for entry in exploits_raw:

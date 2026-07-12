@@ -324,10 +324,10 @@ class ExploitPostMortem:
 
 class PenTestState(TypedDict):
     """LangGraph state dictionary.
-    
+
     This is the state object that is passed between nodes in the LangGraph.
     """
-    
+
     target: str
     attack_graph: Any  # Actually AttackGraph, but avoiding circular import
     current_phase: str

@@ -226,8 +226,9 @@ class TestReconAgentGobuster:
         no_http_result = NmapScanResult(
             hosts=[HostInfo(ip="10.10.10.5", hostname="", os_guess="", status="up")],
             services=[
-                ServiceInfo(port=22, protocol="tcp", service="ssh",
-                            version="8.9", state="open"),
+                ServiceInfo(
+                    port=22, protocol="tcp", service="ssh", version="8.9", state="open"
+                ),
             ],
             os_guess=None,
             scan_duration_seconds=10.0,

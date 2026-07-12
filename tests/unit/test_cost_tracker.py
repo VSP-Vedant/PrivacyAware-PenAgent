@@ -1,3 +1,4 @@
+from typing import Any
 """Unit tests for cost tracker (Member A)."""
 
 import pytest
@@ -6,14 +7,14 @@ from src.router.cost_tracker import cost_tracker
 
 
 @pytest.fixture(autouse=True)
-def reset_tracker():
+def reset_tracker() -> Any:
     """Reset tracker before every test."""
     cost_tracker.reset()
     yield
     cost_tracker.reset()
 
 
-def test_record_call():
+def test_record_call() -> None:
     cost_tracker.record_call("gpt-4o", 1200, 450)
     cost_tracker.record_call("llama3:8b", 800, 320)
 
@@ -25,7 +26,7 @@ def test_record_call():
     assert entries[1]["cost_usd"] == 0.0
 
 
-def test_get_summary():
+def test_get_summary() -> None:
     summary = cost_tracker.get_summary()
     assert "Cost Summary" in summary
     assert "Total Calls" in summary
@@ -35,7 +36,7 @@ def test_get_summary():
     assert "Cloud Usage" in summary
 
 
-def test_reset():
+def test_reset() -> None:
     cost_tracker.record_call("gpt-4o", 100, 50)
     cost_tracker.reset()
     assert len(cost_tracker.get_detailed_log()) == 0

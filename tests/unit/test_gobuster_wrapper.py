@@ -10,7 +10,6 @@ from src.tools.gobuster_wrapper import (
     WebEndpoint,
 )
 
-
 SAMPLE_GOBUSTER_OUTPUT = """\
 /index.html           (Status: 200) [Size: 10918]
 /images               (Status: 301) [Size: 313] [--> http://10.10.10.5/images/]

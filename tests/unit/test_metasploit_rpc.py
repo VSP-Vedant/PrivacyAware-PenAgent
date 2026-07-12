@@ -156,9 +156,7 @@ class TestMetasploitRPCClient:
             rport=445,
             payload="windows/x64/meterpreter/reverse_tcp",
         )
-        with pytest.raises(
-            MetasploitModuleError, match="OUTSIDE allowed ranges"
-        ):
+        with pytest.raises(MetasploitModuleError, match="OUTSIDE allowed ranges"):
             client.execute_exploit(
                 "exploit/windows/smb/ms17_010_eternalblue",
                 options,
@@ -167,8 +165,10 @@ class TestMetasploitRPCClient:
     def test_context_manager(self) -> None:
         """Test MetasploitRPCClient context manager protocol."""
         client = MetasploitRPCClient()
-        with patch.object(client, "connect") as mock_connect, \
-             patch.object(client, "disconnect") as mock_disconnect:
+        with (
+            patch.object(client, "connect") as mock_connect,
+            patch.object(client, "disconnect") as mock_disconnect,
+        ):
             # __enter__ should return self
             assert client.__enter__() is client
             mock_connect.assert_called_once()
@@ -178,12 +178,8 @@ class TestMetasploitRPCClient:
 
     def test_exception_hierarchy(self) -> None:
         """Test custom exception inheritance chain."""
-        assert issubclass(
-            MetasploitConnectionError, MetasploitRPCError
-        )
-        assert issubclass(
-            MetasploitModuleError, MetasploitRPCError
-        )
+        assert issubclass(MetasploitConnectionError, MetasploitRPCError)
+        assert issubclass(MetasploitModuleError, MetasploitRPCError)
         assert issubclass(MetasploitRPCError, Exception)
 
     def test_health_check_not_connected(self) -> None:

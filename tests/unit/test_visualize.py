@@ -18,20 +18,20 @@ def test_visualize_attack_graph() -> None:
 
     try:
         ag = AttackGraph(db_path=db_path)
-        
+
         # Populate with some dummy data
         host = HostNode(ip="10.10.10.5", hostname="target.htb", status="up")
         ag.add_host(host)
-        
+
         svc = ServiceNode(host_ip="10.10.10.5", port=22, name="ssh")
         ag.add_service(svc)
-        
+
         # Test visualization
         visualize_attack_graph(ag, output_file=output_path)
-        
+
         # Verify file exists
         assert os.path.exists(output_path)
-        
+
     finally:
         # Cleanup
         Path(db_path).unlink()

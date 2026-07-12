@@ -27,7 +27,7 @@ class AttackGraph:
         host_id = f"host:{service.host_ip}"
         if not self.graph.has_node(host_id):
             self.add_host(HostNode(ip=service.host_ip))
-            
+
         self.graph.add_node(service.node_id, **service.to_dict())
         self.graph.add_edge(host_id, service.node_id, type=EdgeType.HOSTS_SERVICE.value)
         self.persistence.save_graph(self.graph)

@@ -1,21 +1,23 @@
 """Tests for Orchestrator (Member B)."""
 
-import pytest
 from typing import Any
 
-from src.state.schemas import PenTestState, ExploitAttempt
-from src.state.attack_graph import AttackGraph
+import pytest
+
 from src.agents.orchestrator import (
-    has_exploitable,
-    check_success,
-    recon_node,
     analyze_graph_node,
+    build_graph,
+    check_success,
     exploit_node,
-    verify_node,
+    has_exploitable,
+    recon_node,
     replan_node,
     report_node,
-    build_graph
+    verify_node,
 )
+from src.state.attack_graph import AttackGraph
+from src.state.schemas import ExploitAttempt, PenTestState
+
 
 @pytest.fixture
 def empty_state() -> PenTestState:
@@ -28,34 +30,47 @@ def empty_state() -> PenTestState:
         "step_count": 0,
         "max_steps": 10,
         "cloud_tokens_used": 0,
-        "findings": []
+        "findings": [],
     }
 
-def test_has_exploitable(empty_state):
+
+def test_has_exploitable(empty_state) -> None:
     assert has_exploitable(empty_state) == "report"
 
-def test_check_success_empty(empty_state):
+
+def test_check_success_empty(empty_state) -> None:
     assert check_success(empty_state) == "report"
 
-def test_check_success_with_success(empty_state):
+
+def test_check_success_with_success(empty_state) -> None:
     empty_state["exploit_attempts"].append(
-        ExploitAttempt(target_service_id="svc-1", module_used="test", result="success", session_id="1")
+        ExploitAttempt(
+            target_service_id="svc-1",
+            module_used="test",
+            result="success",
+            session_id="1",
+        )
     )
     assert check_success(empty_state) == "report"
 
-def test_check_success_with_failure(empty_state):
+
+def test_check_success_with_failure(empty_state) -> None:
     empty_state["exploit_attempts"].append(
         ExploitAttempt(target_service_id="svc-1", module_used="test", result="failure")
     )
     assert check_success(empty_state) == "replan"
 
-def test_check_success_max_steps(empty_state):
+
+def test_check_success_max_steps(empty_state) -> None:
     for i in range(10):
         empty_state["exploit_attempts"].append(
-            ExploitAttempt(target_service_id="svc-1", module_used="test", result="failure")
+            ExploitAttempt(
+                target_service_id="svc-1", module_used="test", result="failure"
+            )
         )
     assert check_success(empty_state) == "report"
 
-def test_build_graph():
+
+def test_build_graph() -> None:
     graph = build_graph()
     assert graph is not None

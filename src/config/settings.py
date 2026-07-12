@@ -37,9 +37,7 @@ CLOUD_MODEL_FALLBACK: str = os.getenv(
 # ─── LLM — Local (Ollama) ─────────────────────────────────────────────────────
 
 OLLAMA_HOST: str = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-OLLAMA_MODEL_LOCAL: str = os.getenv(
-    "OLLAMA_MODEL_LOCAL", "llama3:8b-instruct-q4_K_M"
-)
+OLLAMA_MODEL_LOCAL: str = os.getenv("OLLAMA_MODEL_LOCAL", "llama3:8b-instruct-q4_K_M")
 OLLAMA_MODEL_FALLBACK: str = os.getenv(
     "OLLAMA_MODEL_FALLBACK", "mistral:7b-instruct-v0.3-q4_K_M"
 )
@@ -68,14 +66,13 @@ RUN_TIMEOUT_SECONDS: int = int(os.getenv("RUN_TIMEOUT_SECONDS", "1800"))
 # Hardcoded here — never driven by environment to prevent override attacks.
 
 ALLOWED_TARGET_RANGES: list[str] = [
-    "10.10.0.0/16",       # HackTheBox VPN range (primary)
-    "10.129.0.0/16",      # HackTheBox VPN range (alternate)
-    "192.168.56.0/24",    # Local VirtualBox host-only
-    "172.17.0.0/16",      # Docker containers
-    "127.0.0.1/32",       # Localhost
+    "10.10.0.0/16",  # HackTheBox VPN range (primary)
+    "10.129.0.0/16",  # HackTheBox VPN range (alternate)
+    "192.168.56.0/24",  # Local VirtualBox host-only
+    "172.17.0.0/16",  # Docker containers
+    "127.0.0.1/32",  # Localhost
 ]
 
 # ─── Logging ──────────────────────────────────────────────────────────────────
 
 LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO").upper()
-

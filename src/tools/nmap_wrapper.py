@@ -109,13 +109,9 @@ class NmapWrapper:
         """
         try:
             addr = ip_address(target)
-            return any(
-                addr in ip_network(net) for net in ALLOWED_TARGET_RANGES
-            )
+            return any(addr in ip_network(net) for net in ALLOWED_TARGET_RANGES)
         except ValueError:
-            self._logger.warning(
-                "Invalid IP address format: %s", target
-            )
+            self._logger.warning("Invalid IP address format: %s", target)
             return False
 
     def scan(
@@ -139,9 +135,7 @@ class NmapWrapper:
         """
         if not self.validate_target(target):
             msg = f"Target {target} not in allowed ranges"
-            self._logger.critical(
-                "Security boundary violation: %s", msg
-            )
+            self._logger.critical("Security boundary violation: %s", msg)
             raise NmapScanError(msg)
 
         if scan_type not in SCAN_PRESETS:
@@ -154,8 +148,7 @@ class NmapWrapper:
             import nmap  # type: ignore[import-untyped]
         except ImportError as exc:
             raise NmapScanError(
-                "python-nmap not installed. "
-                "Run: pip install python-nmap"
+                "python-nmap not installed. " "Run: pip install python-nmap"
             ) from exc
 
         scanner = nmap.PortScanner()
@@ -182,13 +175,9 @@ class NmapWrapper:
                 timeout=self._timeout,
             )
         except nmap.PortScannerError as exc:
-            raise NmapScanError(
-                f"Nmap scan failed: {exc}"
-            ) from exc
+            raise NmapScanError(f"Nmap scan failed: {exc}") from exc
         except Exception as exc:
-            raise NmapScanError(
-                f"Unexpected scan error: {exc}"
-            ) from exc
+            raise NmapScanError(f"Unexpected scan error: {exc}") from exc
 
         duration = time.time() - start_time
 
@@ -198,9 +187,7 @@ class NmapWrapper:
 
         for host_ip in scanner.all_hosts():
             host_data = scanner[host_ip]
-            host_info, host_services = self._parse_host(
-                host_ip, host_data
-            )
+            host_info, host_services = self._parse_host(host_ip, host_data)
             hosts.append(host_info)
             services.extend(host_services)
 
@@ -247,9 +234,7 @@ class NmapWrapper:
         try:
             import nmap  # type: ignore[import-untyped]
         except ImportError as exc:
-            raise NmapScanError(
-                "python-nmap not installed"
-            ) from exc
+            raise NmapScanError("python-nmap not installed") from exc
 
         try:
             scanner = nmap.PortScanner()
@@ -257,9 +242,7 @@ class NmapWrapper:
                 xml_content = f.read()
             scanner.analyse_nmap_xml_scan(xml_content)
         except Exception as exc:
-            raise NmapScanError(
-                f"Failed to parse XML: {exc}"
-            ) from exc
+            raise NmapScanError(f"Failed to parse XML: {exc}") from exc
 
         hosts: list[HostInfo] = []
         services: list[ServiceInfo] = []
@@ -267,9 +250,7 @@ class NmapWrapper:
 
         for host_ip in scanner.all_hosts():
             host_data = scanner[host_ip]
-            host_info, host_services = self._parse_host(
-                host_ip, host_data
-            )
+            host_info, host_services = self._parse_host(host_ip, host_data)
             hosts.append(host_info)
             services.extend(host_services)
 

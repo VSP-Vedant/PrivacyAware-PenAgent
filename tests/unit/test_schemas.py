@@ -190,9 +190,7 @@ class TestSessionNode:
 
     def test_root_privilege(self) -> None:
         """Verify root privilege stores correctly."""
-        sess = SessionNode(
-            session_id="1", host_ip="10.10.10.5", privilege="root"
-        )
+        sess = SessionNode(session_id="1", host_ip="10.10.10.5", privilege="root")
         assert sess.privilege == "root"
 
 
@@ -201,17 +199,13 @@ class TestWebEndpointNode:
 
     def test_create_web_endpoint(self) -> None:
         """Verify web endpoint creation."""
-        ep = WebEndpointNode(
-            host_ip="10.10.10.5", port=80, url="/admin"
-        )
+        ep = WebEndpointNode(host_ip="10.10.10.5", port=80, url="/admin")
         assert ep.url == "/admin"
         assert ep.status_code == 200
 
     def test_node_id_format(self) -> None:
         """Verify node ID follows 'web:<ip>:<port><url>' format."""
-        ep = WebEndpointNode(
-            host_ip="10.10.10.5", port=80, url="/login"
-        )
+        ep = WebEndpointNode(host_ip="10.10.10.5", port=80, url="/login")
         assert ep.node_id == "web:10.10.10.5:80/login"
 
 

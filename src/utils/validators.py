@@ -49,9 +49,7 @@ def validate_target(target: str) -> bool:
             "Target resolution failed — blocking scan",
             extra={"target": target, "error": str(exc)},
         )
-        raise TargetValidationError(
-            f"Cannot resolve target '{target}': {exc}"
-        ) from exc
+        raise TargetValidationError(f"Cannot resolve target '{target}': {exc}") from exc
 
     ip_obj = ipaddress.ip_address(ip)
 
@@ -59,7 +57,11 @@ def validate_target(target: str) -> bool:
         if ip_obj in ipaddress.ip_network(allowed_range, strict=False):
             logger.debug(
                 "Target validated",
-                extra={"target": target, "resolved_ip": ip, "matched_range": allowed_range},
+                extra={
+                    "target": target,
+                    "resolved_ip": ip,
+                    "matched_range": allowed_range,
+                },
             )
             return True
 
@@ -133,4 +135,3 @@ def sanitise_module_path(module_path: str) -> str:
             )
     # Normalise slashes.
     return module_path.strip().replace("\\", "/")
-

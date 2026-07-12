@@ -14,8 +14,8 @@ import requests
 
 from src.config.settings import (
     ANTHROPIC_API_KEY,
-    OPENAI_API_KEY,
     OLLAMA_HOST,
+    OPENAI_API_KEY,
 )
 from src.router.llm_router import RoutingDecision
 
@@ -116,14 +116,16 @@ class LLMClient:
 
     def _mock_response(self) -> str:
         """Return a mock JSON response for when APIs fail or keys are missing."""
-        return json.dumps({
-            "recommendations": [
-                {
-                    "module_path": "exploit/unix/ftp/vsftpd_234_backdoor",
-                    "options": {"RPORT": 21},
-                    "payload": "cmd/unix/interact",
-                    "confidence": 0.9,
-                    "reasoning": "Mocked LLM fallback response."
-                }
-            ]
-        })
+        return json.dumps(
+            {
+                "recommendations": [
+                    {
+                        "module_path": "exploit/unix/ftp/vsftpd_234_backdoor",
+                        "options": {"RPORT": 21},
+                        "payload": "cmd/unix/interact",
+                        "confidence": 0.9,
+                        "reasoning": "Mocked LLM fallback response.",
+                    }
+                ]
+            }
+        )

@@ -11,11 +11,7 @@ import logging
 
 import requests
 
-from src.config.settings import (
-    ANTHROPIC_API_KEY,
-    OLLAMA_HOST,
-    OPENAI_API_KEY,
-)
+from src.config.settings import ANTHROPIC_API_KEY, OLLAMA_HOST, OPENAI_API_KEY
 from src.router.llm_router import RoutingDecision
 
 logger = logging.getLogger(__name__)

@@ -94,6 +94,7 @@ class GobusterWrapper:
         threads: int = 10,
         timeout: int = 300,
     ) -> None:
+        """Docstring."""
         self._wordlist = wordlist
         self._threads = threads
         self._timeout = timeout

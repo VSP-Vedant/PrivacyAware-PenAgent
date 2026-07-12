@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
 
 import requests
 
@@ -26,6 +25,7 @@ class LLMClient:
     """Client for executing LLM prompts across different providers."""
 
     def __init__(self) -> None:
+        """Docstring."""
         pass
 
     def generate(self, decision: RoutingDecision, prompt: str) -> str:

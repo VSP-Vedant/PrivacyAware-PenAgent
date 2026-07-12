@@ -43,5 +43,5 @@ def test_reset() -> None:
     assert len(cost_tracker.get_detailed_log()) == 0
     assert (
         cost_tracker.get_summary()
-        == "Cost Summary:\n  Total Calls: 0\n  Total Input Tokens: 0\n  Total Output Tokens: 0\n  Total Cost: $0.000000\n  Cloud Usage: 0 calls\n"
+        == "Cost Summary:\n  Total Calls: 0\n  Total Input Tokens: 0\n  Total Output Tokens: 0\n  Total Cost: $0.000000\n  Cloud Usage: 0 calls\n"  # noqa: E501
     )

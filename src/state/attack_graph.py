@@ -12,6 +12,7 @@ class AttackGraph:
     """In-memory representation of the target network and vulnerabilities."""
 
     def __init__(self, db_path: str = "runs/pentest_state.db") -> None:
+        """Docstring."""
         self.persistence = PersistenceManager(db_path)
         # Try to load existing graph, otherwise create a new empty one
         self.graph = self.persistence.load_graph() or nx.DiGraph()

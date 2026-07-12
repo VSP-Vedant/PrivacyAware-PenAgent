@@ -18,17 +18,15 @@ from typing import Any
 
 from src.state.attack_graph import AttackGraph
 from src.state.schemas import (
-    CVENode,
     EdgeType,
     HostNode,
     ServiceNode,
     WebEndpointNode,
 )
-from src.tools.cve_mapper import CVECandidate, CVEMapper, CVEMappingResult
+from src.tools.cve_mapper import CVECandidate, CVEMapper
 from src.tools.gobuster_wrapper import GobusterError, GobusterWrapper, WebEndpoint
 from src.tools.nmap_wrapper import (
     HostInfo,
-    NmapScanError,
     NmapScanResult,
     NmapWrapper,
     ServiceInfo,
@@ -85,6 +83,7 @@ class ReconAgent:
         use_gobuster: bool = True,
         use_cve_mapping: bool = True,
     ) -> None:
+        """Docstring."""
         self._graph = attack_graph
         self._nmap = NmapWrapper(timeout=nmap_timeout)
         self._gobuster = GobusterWrapper()
@@ -360,7 +359,6 @@ class ReconAgent:
             # Link CVE to all services that could be affected
             # We link based on the CVE description containing the service name
             for svc in services:
-                service_id = f"service:{svc.service}:{svc.port}/{svc.protocol}"
                 # Try the actual node ID format used by ServiceNode
                 for node in self._graph.graph.nodes():
                     if node.startswith("service:") and str(svc.port) in node:

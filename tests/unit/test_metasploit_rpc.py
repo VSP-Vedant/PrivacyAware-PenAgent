@@ -26,7 +26,7 @@ class TestMsfModule:
         module = MsfModule(
             name="ms17_010_eternalblue",
             full_path="exploit/windows/smb/ms17_010_eternalblue",
-            description="MS17-010 EternalBlue SMB Remote Windows Kernel Pool Corruption",
+            description="MS17-010 EternalBlue SMB Remote Windows Kernel Pool Corruption",  # noqa: E501
             rank="great",
             references=["CVE-2017-0144", "CVE-2017-0145"],
         )

@@ -33,12 +33,12 @@ _KNOWN_CVES: list[dict[str, Any]] = [
             {
                 "cve_id": "CVE-2016-10009",
                 "cvss_score": 7.3,
-                "description": "OpenSSH before 7.4 - agent forwarding arbitrary library load",
+                "description": "OpenSSH before 7.4 - agent forwarding arbitrary library load",  # noqa: E501
             },
             {
                 "cve_id": "CVE-2016-10010",
                 "cvss_score": 6.2,
-                "description": "OpenSSH before 7.4 - privilege escalation via forwarded agent socket",
+                "description": "OpenSSH before 7.4 - privilege escalation via forwarded agent socket",  # noqa: E501
             },
         ],
     },
@@ -213,6 +213,7 @@ class CVEMapper:
     """
 
     def __init__(self, use_searchsploit: bool = True) -> None:
+        """Docstring."""
         self._use_searchsploit = use_searchsploit
         self._searchsploit = SearchSploitWrapper()
 

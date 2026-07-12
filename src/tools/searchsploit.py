@@ -59,6 +59,7 @@ class SearchSploitWrapper:
     """
 
     def __init__(self) -> None:
+        """Docstring."""
         pass
 
     # ----------------------------------------------------------

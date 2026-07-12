@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 
 from src.state.attack_graph import AttackGraph
-from src.state.schemas import ExploitAttempt, ExploitPostMortem
+from src.state.schemas import ExploitAttempt
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +23,7 @@ class VerificationAgent:
     """
 
     def __init__(self, attack_graph: AttackGraph) -> None:
+        """Docstring."""
         self._graph = attack_graph
 
     def verify(self, attempt: ExploitAttempt) -> ExploitAttempt:

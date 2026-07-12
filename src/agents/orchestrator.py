@@ -5,17 +5,16 @@ Owner: Vighnesh (Member B)
 
 from __future__ import annotations
 
-import os
 from typing import Literal
 
-from langgraph.graph import StateGraph, END
+from langgraph.graph import END, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
 from src.agents.exploit_agent import ExploitAgent
 from src.agents.recon_agent import ReconAgent
 from src.agents.verification_agent import VerificationAgent
 from src.state.attack_graph import AttackGraph
-from src.state.schemas import ExploitAttempt, PenTestState
+from src.state.schemas import PenTestState
 from src.tools.metasploit_rpc import MetasploitRPCClient
 from src.utils.logging_config import setup_logger
 
@@ -26,6 +25,7 @@ msf_client = MetasploitRPCClient()
 
 
 def recon_node(state: PenTestState) -> PenTestState:
+    """Docstring."""
     logger.info("Executing recon node")
     state["current_phase"] = "recon"
 
@@ -44,12 +44,14 @@ def recon_node(state: PenTestState) -> PenTestState:
 
 
 def analyze_graph_node(state: PenTestState) -> PenTestState:
+    """Docstring."""
     logger.info("Executing analyze_graph node")
     state["step_count"] += 1
     return state
 
 
 def exploit_node(state: PenTestState) -> PenTestState:
+    """Docstring."""
     logger.info("Executing exploit node")
     state["current_phase"] = "exploit"
     ag: AttackGraph = state["attack_graph"]
@@ -73,6 +75,7 @@ def exploit_node(state: PenTestState) -> PenTestState:
 
 
 def verify_node(state: PenTestState) -> PenTestState:
+    """Docstring."""
     logger.info("Executing verify node")
     state["current_phase"] = "verify"
 
@@ -92,12 +95,14 @@ def verify_node(state: PenTestState) -> PenTestState:
 
 
 def replan_node(state: PenTestState) -> PenTestState:
+    """Docstring."""
     logger.info("Executing replan node")
     state["step_count"] += 1
     return state
 
 
 def report_node(state: PenTestState) -> PenTestState:
+    """Docstring."""
     logger.info("Executing report node")
     state["current_phase"] = "report"
     state["step_count"] += 1
@@ -105,6 +110,7 @@ def report_node(state: PenTestState) -> PenTestState:
 
 
 def has_exploitable(state: PenTestState) -> Literal["exploit", "report"]:
+    """Docstring."""
     ag: AttackGraph = state["attack_graph"]
     if ag.get_exploitable_services():
         return "exploit"
@@ -112,6 +118,7 @@ def has_exploitable(state: PenTestState) -> Literal["exploit", "report"]:
 
 
 def check_success(state: PenTestState) -> Literal["report", "replan"]:
+    """Docstring."""
     if not state["exploit_attempts"]:
         return "report"
 

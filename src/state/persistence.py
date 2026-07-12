@@ -4,7 +4,6 @@ import contextlib
 import json
 import sqlite3
 from pathlib import Path
-from typing import Any
 
 import networkx as nx
 
@@ -68,7 +67,7 @@ class PersistenceManager:
                         """
                         INSERT INTO graph_state (id, data, updated_at)
                         VALUES (1, ?, CURRENT_TIMESTAMP)
-                        ON CONFLICT(id) DO UPDATE SET 
+                        ON CONFLICT(id) DO UPDATE SET
                             data=excluded.data,
                             updated_at=CURRENT_TIMESTAMP
                         """,
@@ -107,8 +106,9 @@ class PersistenceManager:
                     cursor = conn.cursor()
                     cursor.execute(
                         """
-                        INSERT INTO exploit_attempts 
-                        (target_service_id, module_used, payload, result, session_id, error_type, raw_error, timestamp)
+                        INSERT INTO exploit_attempts
+                        (target_service_id, module_used, payload, result,
+                         session_id, error_type, raw_error, timestamp)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                         """,
                         (

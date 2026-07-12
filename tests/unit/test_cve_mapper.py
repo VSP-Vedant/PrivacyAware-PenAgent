@@ -8,8 +8,6 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from src.tools.cve_mapper import CVECandidate, CVEMapper, CVEMappingResult
 
 

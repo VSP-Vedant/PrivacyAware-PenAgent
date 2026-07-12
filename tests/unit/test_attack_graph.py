@@ -4,7 +4,7 @@ import tempfile
 from pathlib import Path
 
 from src.state.attack_graph import AttackGraph
-from src.state.schemas import HostNode, ServiceNode
+from src.state.schemas import ServiceNode
 
 
 def test_attack_graph_add_host_and_service() -> None:

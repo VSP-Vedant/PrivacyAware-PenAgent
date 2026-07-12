@@ -8,7 +8,6 @@ from __future__ import annotations
 import argparse
 import sys
 import time
-from pathlib import Path
 
 from src.agents.orchestrator import build_graph
 from src.config.settings import MAX_TOTAL_STEPS
@@ -20,6 +19,7 @@ from src.utils.validators import TargetValidationError, validate_target
 
 
 def main() -> None:
+    """Docstring."""
     parser = argparse.ArgumentParser(description="PrivacyAware-PenAgent")
     parser.add_argument("--target", required=True, help="Target IP or hostname")
     parser.add_argument(

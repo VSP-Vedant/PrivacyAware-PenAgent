@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from src.tools.gobuster_wrapper import (
     GobusterResult,
     GobusterWrapper,

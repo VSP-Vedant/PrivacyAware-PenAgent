@@ -1,4 +1,5 @@
 from typing import Any
+
 """Unit tests for cost tracker (Member A)."""
 
 import pytest

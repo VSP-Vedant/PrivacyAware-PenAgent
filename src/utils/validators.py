@@ -133,3 +133,4 @@ def sanitise_module_path(module_path: str) -> str:
             )
     # Normalise slashes.
     return module_path.strip().replace("\\", "/")
+

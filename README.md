@@ -208,5 +208,5 @@ tests/
 
 ---
 
-*Capstone project — Vidyalankar Institute of Technology + IIT Madras BS*
+*Capstone project — Vidyalankar Institute of Technology*
 *Repository maintained by Vedant ([@VSP-Vedant](https://github.com/VSP-Vedant))*

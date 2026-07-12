@@ -1,9 +1,7 @@
-"""
-src/config/settings.py — Centralised configuration via environment variables.
+"""Project-wide settings for PrivacyAware-PenAgent.
 
-All environment-driven configuration is loaded here once and exposed as
-typed constants. No other module should call ``os.getenv`` directly.
-
+Loads configuration from .env file and provides centralized
+access to all project settings and constants.
 Owner: Vighnesh (Member B) — shared foundation file.
 """
 
@@ -15,11 +13,11 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 # Load .env file (if present) before reading any environment variables.
-load_dotenv()
+PROJECT_ROOT: Path = Path(__file__).resolve().parents[2]
+load_dotenv(PROJECT_ROOT / ".env")
 
 # ─── Paths ────────────────────────────────────────────────────────────────────
 
-PROJECT_ROOT: Path = Path(__file__).resolve().parents[2]
 LOG_DIR: Path = PROJECT_ROOT / os.getenv("LOG_DIR", "logs")
 RUNS_DIR: Path = PROJECT_ROOT / "runs"
 
@@ -80,3 +78,4 @@ ALLOWED_TARGET_RANGES: list[str] = [
 # ─── Logging ──────────────────────────────────────────────────────────────────
 
 LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO").upper()
+

@@ -11,12 +11,16 @@ from typing import Literal
 from langgraph.graph import StateGraph, END
 from src.state.schemas import PenTestState, ExploitAttempt
 from src.state.attack_graph import AttackGraph
-from src.agents.recon_agent import execute_recon
-from src.agents.exploit_agent import attempt_exploit
-from src.agents.verification_agent import verify_exploit
+from src.agents.recon_agent import ReconAgent
+from src.agents.exploit_agent import ExploitAgent
+from src.agents.verification_agent import VerificationAgent
+from src.tools.metasploit_rpc import MetasploitRPCClient
 from src.utils.logging_config import setup_logger
 
 logger = setup_logger(__name__)
+
+# Module-level instances for tools that maintain connections
+msf_client = MetasploitRPCClient()
 
 def recon_node(state: PenTestState) -> PenTestState:
     logger.info("Executing recon node")
@@ -25,15 +29,12 @@ def recon_node(state: PenTestState) -> PenTestState:
     target = state["target"]
     ag: AttackGraph = state["attack_graph"]
     
-    result = execute_recon(target)
-    
-    if result.hosts:
-        host_id = ag.add_host(result.hosts[0])
-        for svc in result.services:
-            svc_id = ag.add_service(host_id, svc)
-            # Map CVEs... (simplified for skeleton)
-            for cve in result.cve_candidates:
-                ag.add_cve(svc_id, cve)
+    # Run the real Recon Agent
+    agent = ReconAgent(attack_graph=ag)
+    try:
+        agent.run(target)
+    except Exception as e:
+        logger.error("Recon node failed: %s", e)
                 
     state["step_count"] += 1
     return state
@@ -53,18 +54,14 @@ def exploit_node(state: PenTestState) -> PenTestState:
         logger.warning("No exploitable services found")
         return state
         
-    # Just grab the first one for MVP
-    svc_data = exploitable[0]
-    svc_info = svc_data["data"]
-    svc_id = svc_data["id"]
-    
-    cves = ag.get_cve_candidates(svc_id)
-    failures = ag.get_failed_exploits(svc_id)
-    
-    attempt = attempt_exploit(state["target"], {"name": svc_info.name, "version": svc_info.version}, cves, failures)
-    
-    if attempt:
-        state["exploit_attempts"].append(attempt)
+    # Run the real Exploit Agent
+    agent = ExploitAgent(attack_graph=ag, msf_client=msf_client)
+    try:
+        result = agent.run(state["target"])
+        # Append attempts to state
+        state["exploit_attempts"].extend(result.attempts)
+    except Exception as e:
+        logger.error("Exploit node failed: %s", e)
         
     state["step_count"] += 1
     return state
@@ -77,20 +74,12 @@ def verify_node(state: PenTestState) -> PenTestState:
         return state
         
     last_attempt = state["exploit_attempts"][-1]
-    if last_attempt.result == "pending":
-        verified = verify_exploit(last_attempt)
-        state["exploit_attempts"][-1] = verified
-        
-        ag: AttackGraph = state["attack_graph"]
-        # Simplified: assume we have cve_id mapped somewhere
-        cve_id = "cve_unknown" 
-        
-        if verified.result == "success" and verified.session_id:
-            # Need actual session info in real impl
-            from src.state.schemas import SessionInfo
-            ag.add_session(cve_id, SessionInfo(session_id=verified.session_id, privilege="user", shell_type="cmd"), verified)
-        elif verified.result == "failure":
-            ag.add_failed_exploit(cve_id, verified)
+    
+    # Run the Verification Agent stub
+    agent = VerificationAgent(attack_graph=state["attack_graph"])
+    verified_attempt = agent.verify(last_attempt)
+    
+    state["exploit_attempts"][-1] = verified_attempt
             
     state["step_count"] += 1
     return state
@@ -121,7 +110,7 @@ def check_success(state: PenTestState) -> Literal["report", "replan"]:
         return "report"
         
     # Check max retries
-    if len(state["exploit_attempts"]) >= state["max_steps"]:
+    if len(state["exploit_attempts"]) >= state.get("max_steps", 100):
         return "report"
         
     return "replan"

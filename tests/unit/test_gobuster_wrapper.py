@@ -2,14 +2,7 @@
 
 from __future__ import annotations
 
-import pytest
-
-from src.tools.gobuster_wrapper import (
-    GobusterResult,
-    GobusterWrapper,
-    WebEndpoint,
-)
-
+from src.tools.gobuster_wrapper import GobusterResult, GobusterWrapper, WebEndpoint
 
 SAMPLE_GOBUSTER_OUTPUT = """\
 /index.html           (Status: 200) [Size: 10918]

@@ -19,11 +19,11 @@ logger = logging.getLogger(__name__)
 # Target-scope enforcement
 # ---------------------------------------------------------------------------
 ALLOWED_TARGET_RANGES: list[str] = [
-    "10.10.0.0/16",       # HackTheBox VPN range
-    "10.129.0.0/16",      # HackTheBox VPN range (alternate)
-    "192.168.56.0/24",    # Local VirtualBox host-only
-    "172.17.0.0/16",      # Docker containers
-    "127.0.0.1/32",       # Localhost
+    "10.10.0.0/16",  # HackTheBox VPN range
+    "10.129.0.0/16",  # HackTheBox VPN range (alternate)
+    "192.168.56.0/24",  # Local VirtualBox host-only
+    "172.17.0.0/16",  # Docker containers
+    "127.0.0.1/32",  # Localhost
 ]
 
 
@@ -41,10 +41,7 @@ def validate_target(ip: str) -> bool:
     except ValueError:
         logger.error(f"Invalid IP address format: {ip}")
         return False
-    return any(
-        addr in ip_network(net, strict=False)
-        for net in ALLOWED_TARGET_RANGES
-    )
+    return any(addr in ip_network(net, strict=False) for net in ALLOWED_TARGET_RANGES)
 
 
 # ---------------------------------------------------------------------------
@@ -153,8 +150,7 @@ class MetasploitRPCClient:
         self._ssl = ssl
         self._client: Any | None = None
         logger.debug(
-            f"MetasploitRPCClient configured for "
-            f"{host}:{port} (ssl={ssl})"
+            f"MetasploitRPCClient configured for " f"{host}:{port} (ssl={ssl})"
         )
 
     # -- context manager ----------------------------------------------------
@@ -193,23 +189,16 @@ class MetasploitRPCClient:
                 port=self._port,
                 ssl=self._ssl,
             )
-            logger.info(
-                f"Connected to msfrpcd at "
-                f"{self._host}:{self._port}"
-            )
+            logger.info(f"Connected to msfrpcd at " f"{self._host}:{self._port}")
             return True
         except ImportError as exc:
-            raise MetasploitConnectionError(
-                "pymetasploit3 is not installed"
-            ) from exc
+            raise MetasploitConnectionError("pymetasploit3 is not installed") from exc
         except (ConnectionError, OSError) as exc:
             logger.error(
-                f"Failed to connect to msfrpcd at "
-                f"{self._host}:{self._port}: {exc}"
+                f"Failed to connect to msfrpcd at " f"{self._host}:{self._port}: {exc}"
             )
             raise MetasploitConnectionError(
-                f"Cannot reach msfrpcd at "
-                f"{self._host}:{self._port}"
+                f"Cannot reach msfrpcd at " f"{self._host}:{self._port}"
             ) from exc
 
     def disconnect(self) -> None:
@@ -218,9 +207,7 @@ class MetasploitRPCClient:
             try:
                 self._client.logout()
             except (AttributeError, OSError) as exc:
-                logger.debug(
-                    f"Non-critical error during disconnect: {exc}"
-                )
+                logger.debug(f"Non-critical error during disconnect: {exc}")
             finally:
                 self._client = None
                 logger.info("Disconnected from msfrpcd")
@@ -245,6 +232,7 @@ class MetasploitRPCClient:
             logger.warning("health_check called without connection")
             return False
         try:
+            assert self._client is not None
             _version = self._client.core.version
             logger.debug(f"msfrpcd health OK: {_version}")
             return True
@@ -268,6 +256,7 @@ class MetasploitRPCClient:
             MetasploitConnectionError: If not connected.
         """
         self._require_connection()
+        assert self._client is not None
         try:
             self._client.modules.use("exploit", module_path)
             return True
@@ -293,6 +282,7 @@ class MetasploitRPCClient:
             MetasploitConnectionError: If not connected.
         """
         self._require_connection()
+        assert self._client is not None
         results: list[MsfModule] = []
         try:
             raw_modules = self._client.modules.search(query)
@@ -304,9 +294,7 @@ class MetasploitRPCClient:
                     MsfModule(
                         name=mod.get("name", ""),
                         full_path=mod.get("fullname", ""),
-                        description=mod.get(
-                            "description", ""
-                        ),
+                        description=mod.get("description", ""),
                         rank=mod.get("rank", ""),
                         references=mod.get("references", []),
                     )
@@ -343,6 +331,7 @@ class MetasploitRPCClient:
                 the target is outside allowed ranges.
         """
         self._require_connection()
+        assert self._client is not None
 
         # --- target-scope gate ---------------------------------------------
         if not validate_target(options.rhosts):
@@ -350,20 +339,14 @@ class MetasploitRPCClient:
                 f"Target {options.rhosts} is OUTSIDE allowed "
                 f"ranges — exploit blocked"
             )
-            logger.critical(
-                f"SECURITY: {msg}"
-            )
+            logger.critical(f"SECURITY: {msg}")
             raise MetasploitModuleError(msg)
 
         # --- module lookup -------------------------------------------------
         try:
-            exploit = self._client.modules.use(
-                "exploit", module_path
-            )
+            exploit = self._client.modules.use("exploit", module_path)
         except (KeyError, TypeError) as exc:
-            raise MetasploitModuleError(
-                f"Module not found: {module_path}"
-            ) from exc
+            raise MetasploitModuleError(f"Module not found: {module_path}") from exc
 
         # --- set options ---------------------------------------------------
         exploit["RHOSTS"] = options.rhosts
@@ -384,15 +367,11 @@ class MetasploitRPCClient:
         try:
             result = exploit.execute(payload=options.payload)
             elapsed_ms = (time.monotonic() - start) * 1000
-            logger.info(
-                f"Exploit execution completed in "
-                f"{elapsed_ms:.0f}ms"
-            )
+            logger.info(f"Exploit execution completed in " f"{elapsed_ms:.0f}ms")
         except (OSError, RuntimeError) as exc:
             elapsed_ms = (time.monotonic() - start) * 1000
             logger.error(
-                f"Exploit execution failed after "
-                f"{elapsed_ms:.0f}ms: {exc}"
+                f"Exploit execution failed after " f"{elapsed_ms:.0f}ms: {exc}"
             )
             return ExploitExecutionResult(
                 success=False,
@@ -404,9 +383,7 @@ class MetasploitRPCClient:
 
         # --- evaluate result -----------------------------------------------
         job_id = result.get("job_id")
-        session_id = self._wait_for_session(
-            options.rhosts, timeout=30
-        )
+        session_id = self._wait_for_session(options.rhosts, timeout=30)
 
         if session_id is not None:
             logger.critical(
@@ -446,6 +423,7 @@ class MetasploitRPCClient:
             MetasploitConnectionError: If not connected.
         """
         self._require_connection()
+        assert self._client is not None
         sessions: list[SessionInfo] = []
         try:
             raw = self._client.sessions.list
@@ -454,19 +432,13 @@ class MetasploitRPCClient:
                     SessionInfo(
                         session_id=int(sid),
                         session_type=info.get("type", ""),
-                        target_host=info.get(
-                            "target_host", ""
-                        ),
+                        target_host=info.get("target_host", ""),
                         username=info.get("username", ""),
                         platform=info.get("platform", ""),
-                        via_exploit=info.get(
-                            "via_exploit", ""
-                        ),
+                        via_exploit=info.get("via_exploit", ""),
                     )
                 )
-            logger.info(
-                f"Found {len(sessions)} active session(s)"
-            )
+            logger.info(f"Found {len(sessions)} active session(s)")
         except (OSError, AttributeError) as exc:
             logger.error(f"Failed to list sessions: {exc}")
         return sessions
@@ -490,27 +462,19 @@ class MetasploitRPCClient:
             MetasploitRPCError: On session interaction failure.
         """
         self._require_connection()
-        logger.info(
-            f"Running command in session {session_id}: "
-            f"{command!r}"
-        )
+        assert self._client is not None
+        logger.info(f"Running command in session {session_id}: " f"{command!r}")
         try:
-            shell = self._client.sessions.session(
-                str(session_id)
-            )
+            shell = self._client.sessions.session(str(session_id))
             shell.write(command)
             # Short delay for output to arrive
             time.sleep(1)
             output: str = shell.read()
-            logger.debug(
-                f"Session {session_id} output length: "
-                f"{len(output)} chars"
-            )
+            logger.debug(f"Session {session_id} output length: " f"{len(output)} chars")
             return output
         except (OSError, KeyError, AttributeError) as exc:
             raise MetasploitRPCError(
-                f"Failed to run command in session "
-                f"{session_id}: {exc}"
+                f"Failed to run command in session " f"{session_id}: {exc}"
             ) from exc
 
     # -- private helpers ----------------------------------------------------
@@ -539,6 +503,7 @@ class MetasploitRPCClient:
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             try:
+                assert self._client is not None
                 raw = self._client.sessions.list
                 for sid, info in raw.items():
                     if info.get("target_host") == target:

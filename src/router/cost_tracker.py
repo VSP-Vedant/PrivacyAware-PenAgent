@@ -3,9 +3,8 @@
 Tracks token usage and estimated USD cost for hybrid routing.
 """
 
-import os
 from datetime import datetime
-from typing import Optional, TypedDict
+from typing import TypedDict
 
 from dotenv import load_dotenv
 
@@ -18,6 +17,8 @@ CLOUD_COST_PER_1M_OUTPUT_TOKENS = 0.06
 
 
 class CostEntry(TypedDict):
+    """Docstring."""
+
     model: str
     input_tokens: int
     output_tokens: int
@@ -27,7 +28,10 @@ class CostEntry(TypedDict):
 
 
 class CostTracker:
+    """Docstring."""
+
     def __init__(self) -> None:
+        """Docstring."""
         self.entries: list[CostEntry] = []
         self.total_input_tokens = 0
         self.total_output_tokens = 0
@@ -74,7 +78,7 @@ class CostTracker:
             f"  Total Input Tokens: {self.total_input_tokens}\n"
             f"  Total Output Tokens: {self.total_output_tokens}\n"
             f"  Total Cost: ${self.total_cost_usd:.6f}\n"
-            f"  Cloud Usage: {sum(1 for e in self.entries if 'gpt-4o' in e['model'])} calls\n"
+            f"  Cloud Usage: {sum(1 for e in self.entries if 'gpt-4o' in e['model'])} calls\n"  # noqa: E501
         )
 
     def get_detailed_log(self) -> list[CostEntry]:

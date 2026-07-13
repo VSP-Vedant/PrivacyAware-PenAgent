@@ -8,8 +8,6 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from src.tools.cve_mapper import CVECandidate, CVEMapper, CVEMappingResult
 
 
@@ -152,9 +150,7 @@ class TestCVEMapperSearchSploitFallback:
     """Tests for SearchSploit fallback behaviour."""
 
     @patch.object(CVEMapper, "_lookup_searchsploit")
-    def test_searchsploit_called_when_kb_empty(
-        self, mock_ss: MagicMock
-    ) -> None:
+    def test_searchsploit_called_when_kb_empty(self, mock_ss: MagicMock) -> None:
         """SearchSploit should be called when KB returns nothing."""
         mock_ss.return_value = [
             CVECandidate(

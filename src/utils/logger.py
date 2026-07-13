@@ -29,10 +29,12 @@ class JSONFormatter(logging.Formatter):
         return json.dumps(log_obj)
 
 
-def setup_logger(name: str, log_file: str | None = None, level: int = logging.INFO) -> logging.Logger:
+def setup_logger(
+    name: str, log_file: str | None = None, level: int = logging.INFO
+) -> logging.Logger:
     """Set up and return a logger with JSON formatting."""
     logger = logging.getLogger(name)
-    
+
     # Avoid adding multiple handlers if the logger is already set up
     if logger.handlers:
         return logger
@@ -52,4 +54,3 @@ def setup_logger(name: str, log_file: str | None = None, level: int = logging.IN
         logger.addHandler(file_handler)
 
     return logger
-

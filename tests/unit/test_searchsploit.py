@@ -13,7 +13,6 @@ from src.tools.searchsploit import (
     SearchSploitWrapper,
 )
 
-
 SAMPLE_SEARCHSPLOIT_JSON = json.dumps(
     {
         "RESULTS_EXPLOIT": [

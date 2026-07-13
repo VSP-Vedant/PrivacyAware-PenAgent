@@ -6,7 +6,6 @@ mocked tool wrappers and a real in-memory attack graph.
 
 from __future__ import annotations
 
-import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -14,9 +13,7 @@ import pytest
 
 from src.agents.recon_agent import ReconAgent, ReconResult
 from src.state.attack_graph import AttackGraph
-from src.tools.cve_mapper import CVECandidate
-from src.tools.gobuster_wrapper import GobusterResult, WebEndpoint
-from src.tools.nmap_wrapper import HostInfo, NmapScanError, NmapScanResult, ServiceInfo
+from src.tools.nmap_wrapper import HostInfo, NmapScanResult, ServiceInfo
 
 
 @pytest.fixture
@@ -226,8 +223,9 @@ class TestReconAgentGobuster:
         no_http_result = NmapScanResult(
             hosts=[HostInfo(ip="10.10.10.5", hostname="", os_guess="", status="up")],
             services=[
-                ServiceInfo(port=22, protocol="tcp", service="ssh",
-                            version="8.9", state="open"),
+                ServiceInfo(
+                    port=22, protocol="tcp", service="ssh", version="8.9", state="open"
+                ),
             ],
             os_guess=None,
             scan_duration_seconds=10.0,
@@ -244,7 +242,7 @@ class TestReconAgentGobuster:
         mock_cve_instance.map_services.return_value = []
 
         agent = ReconAgent(attack_graph=attack_graph)
-        result = agent.run("10.10.10.5")
+        agent.run("10.10.10.5")
 
         mock_gb_instance.scan.assert_not_called()
 

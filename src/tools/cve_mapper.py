@@ -30,10 +30,16 @@ _KNOWN_CVES: list[dict[str, Any]] = [
         "product_pattern": r"OpenSSH",
         "version_pattern": r"^7\.[0-6]",
         "cves": [
-            {"cve_id": "CVE-2016-10009", "cvss_score": 7.3,
-             "description": "OpenSSH before 7.4 - agent forwarding arbitrary library load"},
-            {"cve_id": "CVE-2016-10010", "cvss_score": 6.2,
-             "description": "OpenSSH before 7.4 - privilege escalation via forwarded agent socket"},
+            {
+                "cve_id": "CVE-2016-10009",
+                "cvss_score": 7.3,
+                "description": "OpenSSH before 7.4 - agent forwarding arbitrary library load",  # noqa: E501
+            },
+            {
+                "cve_id": "CVE-2016-10010",
+                "cvss_score": 6.2,
+                "description": "OpenSSH before 7.4 - privilege escalation via forwarded agent socket",  # noqa: E501
+            },
         ],
     },
     {
@@ -41,8 +47,11 @@ _KNOWN_CVES: list[dict[str, Any]] = [
         "product_pattern": r"OpenSSH",
         "version_pattern": r"^8\.[0-3]",
         "cves": [
-            {"cve_id": "CVE-2020-15778", "cvss_score": 7.8,
-             "description": "OpenSSH through 8.3p1 - command injection via scp"},
+            {
+                "cve_id": "CVE-2020-15778",
+                "cvss_score": 7.8,
+                "description": "OpenSSH through 8.3p1 - command injection via scp",
+            },
         ],
     },
     # Apache HTTP Server
@@ -51,10 +60,16 @@ _KNOWN_CVES: list[dict[str, Any]] = [
         "product_pattern": r"Apache",
         "version_pattern": r"^2\.4\.(49|50)$",
         "cves": [
-            {"cve_id": "CVE-2021-41773", "cvss_score": 7.5,
-             "description": "Apache 2.4.49 path traversal and RCE"},
-            {"cve_id": "CVE-2021-42013", "cvss_score": 9.8,
-             "description": "Apache 2.4.49-50 path traversal bypass (RCE)"},
+            {
+                "cve_id": "CVE-2021-41773",
+                "cvss_score": 7.5,
+                "description": "Apache 2.4.49 path traversal and RCE",
+            },
+            {
+                "cve_id": "CVE-2021-42013",
+                "cvss_score": 9.8,
+                "description": "Apache 2.4.49-50 path traversal bypass (RCE)",
+            },
         ],
     },
     {
@@ -62,8 +77,11 @@ _KNOWN_CVES: list[dict[str, Any]] = [
         "product_pattern": r"Apache",
         "version_pattern": r"^2\.4\.(1[0-9]|2[0-9]|3[0-9]|4[0-8])$",
         "cves": [
-            {"cve_id": "CVE-2019-0211", "cvss_score": 7.8,
-             "description": "Apache 2.4.17-2.4.38 local privilege escalation"},
+            {
+                "cve_id": "CVE-2019-0211",
+                "cvss_score": 7.8,
+                "description": "Apache 2.4.17-2.4.38 local privilege escalation",
+            },
         ],
     },
     # Nginx
@@ -72,8 +90,11 @@ _KNOWN_CVES: list[dict[str, Any]] = [
         "product_pattern": r"nginx",
         "version_pattern": r"^1\.(1[0-7]|[0-9])\..*",
         "cves": [
-            {"cve_id": "CVE-2019-20372", "cvss_score": 5.3,
-             "description": "nginx before 1.17.7 HTTP request smuggling"},
+            {
+                "cve_id": "CVE-2019-20372",
+                "cvss_score": 5.3,
+                "description": "nginx before 1.17.7 HTTP request smuggling",
+            },
         ],
     },
     # vsftpd
@@ -82,8 +103,11 @@ _KNOWN_CVES: list[dict[str, Any]] = [
         "product_pattern": r"vsftpd",
         "version_pattern": r"^2\.3\.4$",
         "cves": [
-            {"cve_id": "CVE-2011-2523", "cvss_score": 10.0,
-             "description": "vsftpd 2.3.4 backdoor command execution"},
+            {
+                "cve_id": "CVE-2011-2523",
+                "cvss_score": 10.0,
+                "description": "vsftpd 2.3.4 backdoor command execution",
+            },
         ],
     },
     # ProFTPD
@@ -92,8 +116,11 @@ _KNOWN_CVES: list[dict[str, Any]] = [
         "product_pattern": r"ProFTPD",
         "version_pattern": r"^1\.3\.[0-5]",
         "cves": [
-            {"cve_id": "CVE-2015-3306", "cvss_score": 10.0,
-             "description": "ProFTPD before 1.3.5e - mod_copy arbitrary file copy"},
+            {
+                "cve_id": "CVE-2015-3306",
+                "cvss_score": 10.0,
+                "description": "ProFTPD before 1.3.5e - mod_copy arbitrary file copy",
+            },
         ],
     },
     # SMB / Samba
@@ -102,10 +129,16 @@ _KNOWN_CVES: list[dict[str, Any]] = [
         "product_pattern": r"(Samba|Windows)",
         "version_pattern": r".*",
         "cves": [
-            {"cve_id": "CVE-2017-0144", "cvss_score": 9.8,
-             "description": "EternalBlue - Windows SMBv1 RCE (MS17-010)"},
-            {"cve_id": "CVE-2017-7494", "cvss_score": 9.8,
-             "description": "Samba 3.5.0-4.6.4 - is_known_pipename() RCE"},
+            {
+                "cve_id": "CVE-2017-0144",
+                "cvss_score": 9.8,
+                "description": "EternalBlue - Windows SMBv1 RCE (MS17-010)",
+            },
+            {
+                "cve_id": "CVE-2017-7494",
+                "cvss_score": 9.8,
+                "description": "Samba 3.5.0-4.6.4 - is_known_pipename() RCE",
+            },
         ],
     },
     # MySQL
@@ -114,8 +147,11 @@ _KNOWN_CVES: list[dict[str, Any]] = [
         "product_pattern": r"MySQL",
         "version_pattern": r"^5\.[0-5]",
         "cves": [
-            {"cve_id": "CVE-2012-2122", "cvss_score": 7.5,
-             "description": "MySQL 5.1/5.5/5.6 authentication bypass"},
+            {
+                "cve_id": "CVE-2012-2122",
+                "cvss_score": 7.5,
+                "description": "MySQL 5.1/5.5/5.6 authentication bypass",
+            },
         ],
     },
     # Apache Tomcat
@@ -124,8 +160,11 @@ _KNOWN_CVES: list[dict[str, Any]] = [
         "product_pattern": r"(Tomcat|Apache Coyote)",
         "version_pattern": r"^(8\.5\.[0-4][0-9]|9\.0\.[0-3][0-9])",
         "cves": [
-            {"cve_id": "CVE-2020-1938", "cvss_score": 9.8,
-             "description": "Apache Tomcat AJP Ghostcat file read/include"},
+            {
+                "cve_id": "CVE-2020-1938",
+                "cvss_score": 9.8,
+                "description": "Apache Tomcat AJP Ghostcat file read/include",
+            },
         ],
     },
 ]
@@ -174,6 +213,7 @@ class CVEMapper:
     """
 
     def __init__(self, use_searchsploit: bool = True) -> None:
+        """Docstring."""
         self._use_searchsploit = use_searchsploit
         self._searchsploit = SearchSploitWrapper()
 
@@ -196,16 +236,12 @@ class CVEMapper:
         candidates: list[CVECandidate] = []
 
         # 1) Knowledge base lookup
-        kb_candidates = self._lookup_knowledge_base(
-            service_name, product, version
-        )
+        kb_candidates = self._lookup_knowledge_base(service_name, product, version)
         candidates.extend(kb_candidates)
 
         # 2) SearchSploit fallback
         if not candidates and self._use_searchsploit:
-            ssploit_candidates = self._lookup_searchsploit(
-                product, version
-            )
+            ssploit_candidates = self._lookup_searchsploit(product, version)
             candidates.extend(ssploit_candidates)
 
         # Deduplicate by cve_id
@@ -269,16 +305,12 @@ class CVEMapper:
             service_match = re.search(
                 entry["service_pattern"], service_name, re.IGNORECASE
             )
-            product_match = re.search(
-                entry["product_pattern"], product, re.IGNORECASE
-            )
+            product_match = re.search(entry["product_pattern"], product, re.IGNORECASE)
 
             if not (service_match and product_match):
                 continue
 
-            version_match = re.search(
-                entry["version_pattern"], clean_version
-            )
+            version_match = re.search(entry["version_pattern"], clean_version)
             if not version_match:
                 continue
 
@@ -339,7 +371,5 @@ class CVEMapper:
             )
             return candidates
         except Exception as exc:
-            logger.warning(
-                "SearchSploit fallback failed: %s", exc
-            )
+            logger.warning("SearchSploit fallback failed: %s", exc)
             return []

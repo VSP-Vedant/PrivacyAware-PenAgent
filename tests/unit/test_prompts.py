@@ -5,7 +5,7 @@ import pytest
 from src.config.prompts import PROMPTS, get_prompt
 
 
-def test_get_prompt_valid_template():
+def test_get_prompt_valid_template() -> None:
     prompt = get_prompt(
         "router_classification",
         task_input="Normal service summary",
@@ -15,12 +15,12 @@ def test_get_prompt_valid_template():
     assert "sensitivity" in prompt
 
 
-def test_get_prompt_invalid_template():
+def test_get_prompt_invalid_template() -> None:
     with pytest.raises(ValueError):
         get_prompt("invalid_template")
 
 
-def test_prompts_dictionary():
+def test_prompts_dictionary() -> None:
     assert len(PROMPTS) == 4
     assert "router_classification" in PROMPTS
     assert "exploit_selection" in PROMPTS
@@ -28,7 +28,7 @@ def test_prompts_dictionary():
     assert "recon_analysis" in PROMPTS
 
 
-def test_exploit_selection_prompt_structure():
+def test_exploit_selection_prompt_structure() -> None:
     prompt = get_prompt(
         "exploit_selection",
         service_info="vsftpd 2.3.4",

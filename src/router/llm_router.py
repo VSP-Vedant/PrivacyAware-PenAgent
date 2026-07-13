@@ -19,8 +19,6 @@ SENSITIVITY_THRESHOLD = float(os.getenv("SENSITIVITY_THRESHOLD", 0.6))
 COMPLEXITY_THRESHOLD = float(os.getenv("COMPLEXITY_THRESHOLD", 0.7))
 
 
-
-
 class RoutingDecision(NamedTuple):
     """Runtime decision object (mypy workaround)."""
 

@@ -17,22 +17,10 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from src.state.attack_graph import AttackGraph
-from src.state.schemas import (
-    CVENode,
-    EdgeType,
-    HostNode,
-    ServiceNode,
-    WebEndpointNode,
-)
-from src.tools.cve_mapper import CVECandidate, CVEMapper, CVEMappingResult
+from src.state.schemas import EdgeType, HostNode, ServiceNode, WebEndpointNode
+from src.tools.cve_mapper import CVECandidate, CVEMapper
 from src.tools.gobuster_wrapper import GobusterError, GobusterWrapper, WebEndpoint
-from src.tools.nmap_wrapper import (
-    HostInfo,
-    NmapScanError,
-    NmapScanResult,
-    NmapWrapper,
-    ServiceInfo,
-)
+from src.tools.nmap_wrapper import HostInfo, NmapScanResult, NmapWrapper, ServiceInfo
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +73,7 @@ class ReconAgent:
         use_gobuster: bool = True,
         use_cve_mapping: bool = True,
     ) -> None:
+        """Docstring."""
         self._graph = attack_graph
         self._nmap = NmapWrapper(timeout=nmap_timeout)
         self._gobuster = GobusterWrapper()
@@ -110,9 +99,7 @@ class ReconAgent:
         Raises:
             NmapScanError: If target validation or scan fails.
         """
-        logger.info(
-            "Starting recon pipeline against %s", target
-        )
+        logger.info("Starting recon pipeline against %s", target)
 
         result = ReconResult(target=target)
 
@@ -130,7 +117,9 @@ class ReconAgent:
         if self._use_gobuster:
             web_endpoints = self._run_gobuster(target, nmap_result.services)
             result.web_endpoints = web_endpoints
-            self._populate_graph_web_endpoints(target, web_endpoints, nmap_result.services)
+            self._populate_graph_web_endpoints(
+                target, web_endpoints, nmap_result.services
+            )
 
         # ── Step 4: CVE mapping ──────────────────────────────────
         if self._use_cve_mapping:
@@ -163,9 +152,7 @@ class ReconAgent:
         Returns:
             A :class:`ReconResult` with discoveries from the XML.
         """
-        logger.info(
-            "Running recon from XML: %s", xml_path
-        )
+        logger.info("Running recon from XML: %s", xml_path)
         nmap_result = self._nmap.parse_xml(xml_path)
         result = ReconResult(
             target=target,
@@ -210,19 +197,14 @@ class ReconAgent:
     ) -> list[WebEndpoint]:
         """Run Gobuster against HTTP/HTTPS services."""
         all_endpoints: list[WebEndpoint] = []
-        http_services = [
-            svc for svc in services
-            if svc.service in _HTTP_SERVICE_NAMES
-        ]
+        http_services = [svc for svc in services if svc.service in _HTTP_SERVICE_NAMES]
 
         if not http_services:
             logger.info("No HTTP services found, skipping Gobuster")
             return all_endpoints
 
         if not self._gobuster.is_available():
-            logger.warning(
-                "Gobuster binary not found, skipping web enumeration"
-            )
+            logger.warning("Gobuster binary not found, skipping web enumeration")
             return all_endpoints
 
         for svc in http_services:
@@ -253,11 +235,13 @@ class ReconAgent:
         """Map services to CVE candidates."""
         service_dicts: list[dict[str, Any]] = []
         for svc in services:
-            service_dicts.append({
-                "service": svc.service,
-                "product": svc.product,
-                "version": svc.version,
-            })
+            service_dicts.append(
+                {
+                    "service": svc.service,
+                    "product": svc.product,
+                    "version": svc.version,
+                }
+            )
 
         mapping_results = self._cve_mapper.map_services(service_dicts)
         all_candidates: list[CVECandidate] = []
@@ -365,7 +349,6 @@ class ReconAgent:
             # Link CVE to all services that could be affected
             # We link based on the CVE description containing the service name
             for svc in services:
-                service_id = f"service:{svc.service}:{svc.port}/{svc.protocol}"
                 # Try the actual node ID format used by ServiceNode
                 for node in self._graph.graph.nodes():
                     if node.startswith("service:") and str(svc.port) in node:

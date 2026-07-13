@@ -12,7 +12,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any
+from typing import Any, TypedDict
 
 
 class NodeType(Enum):
@@ -320,3 +320,20 @@ class ExploitPostMortem:
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
         return asdict(self)
+
+
+class PenTestState(TypedDict):
+    """LangGraph state dictionary.
+
+    This is the state object that is passed between nodes in the LangGraph.
+    """
+
+    target: str
+    attack_graph: Any  # Actually AttackGraph, but avoiding circular import
+    current_phase: str
+    exploit_attempts: list[ExploitAttempt]
+    sessions: list[SessionNode]
+    step_count: int
+    max_steps: int
+    cloud_tokens_used: int
+    findings: list[dict[str, Any]]

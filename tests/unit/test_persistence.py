@@ -15,7 +15,7 @@ def test_save_and_load_graph() -> None:
         db_path = tmp.name
 
     pm = PersistenceManager(db_path=db_path)
-    
+
     # Create a dummy graph
     graph = nx.DiGraph()
     graph.add_node("host:10.10.10.5", node_type="host", ip="10.10.10.5")
@@ -45,7 +45,7 @@ def test_record_exploit_attempt() -> None:
         target_service_id="service:10.10.10.5:22/tcp",
         module_used="exploit/linux/ssh/test",
     )
-    
+
     # Should not raise any exceptions
     pm.record_exploit_attempt(attempt)
 

@@ -94,6 +94,7 @@ class GobusterWrapper:
         threads: int = 10,
         timeout: int = 300,
     ) -> None:
+        """Docstring."""
         self._wordlist = wordlist
         self._threads = threads
         self._timeout = timeout
@@ -125,14 +126,10 @@ class GobusterWrapper:
         self._validate_target(target_url)
 
         if not self.is_available():
-            raise GobusterError(
-                "gobuster binary not found on PATH"
-            )
+            raise GobusterError("gobuster binary not found on PATH")
 
         cmd = self._build_command(target_url, extensions)
-        logger.info(
-            "Starting gobuster scan against %s", target_url
-        )
+        logger.info("Starting gobuster scan against %s", target_url)
         logger.debug("Command: %s", " ".join(cmd))
 
         start = time.monotonic()
@@ -145,9 +142,7 @@ class GobusterWrapper:
                 check=False,
             )
         except subprocess.TimeoutExpired as exc:
-            raise GobusterError(
-                f"Gobuster timed out after {self._timeout}s"
-            ) from exc
+            raise GobusterError(f"Gobuster timed out after {self._timeout}s") from exc
 
         elapsed = time.monotonic() - start
 
@@ -213,14 +208,10 @@ class GobusterWrapper:
             status = int(match.group(2))
 
             if status not in _ACCEPTED_STATUS_CODES:
-                logger.debug(
-                    "Filtering out %s (status %d)", path, status
-                )
+                logger.debug("Filtering out %s (status %d)", path, status)
                 continue
 
-            content_length = (
-                int(match.group(3)) if match.group(3) else 0
-            )
+            content_length = int(match.group(3)) if match.group(3) else 0
             content_type = match.group(4) or ""
             redirect_url = match.group(5) or ""
 
@@ -279,9 +270,7 @@ class GobusterWrapper:
         parsed = urlparse(target_url)
         hostname = parsed.hostname
         if hostname is None:
-            raise GobusterError(
-                f"Cannot extract hostname from URL: {target_url}"
-            )
+            raise GobusterError(f"Cannot extract hostname from URL: {target_url}")
 
         try:
             addr = ip_address(hostname)
@@ -305,6 +294,5 @@ class GobusterWrapper:
             hostname,
         )
         raise GobusterError(
-            f"Target {hostname} is outside allowed ranges. "
-            f"Scan aborted."
+            f"Target {hostname} is outside allowed ranges. " f"Scan aborted."
         )

@@ -5,7 +5,7 @@ Owner: Vighnesh (Member B)
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from langgraph.graph import END, StateGraph
 from langgraph.graph.state import CompiledStateGraph
@@ -133,7 +133,7 @@ def check_success(state: PenTestState) -> Literal["report", "replan"]:
     return "replan"
 
 
-def build_graph() -> CompiledStateGraph:
+def build_graph() -> CompiledStateGraph[Any, Any, Any]:
     """Build and compile the LangGraph."""
     workflow = StateGraph(PenTestState)
 

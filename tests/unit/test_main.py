@@ -1,6 +1,5 @@
 """Tests for CLI entry point (main.py)."""
 
-import sys
 from unittest.mock import MagicMock, patch
 
 import pytest

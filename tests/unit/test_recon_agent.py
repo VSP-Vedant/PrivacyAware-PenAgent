@@ -329,3 +329,162 @@ class TestReconResult:
         assert result.os_guess is None
         assert result.scan_duration_seconds == 0.0
         assert result.target == ""
+
+
+class TestReconAgentRunFromXML:
+    """Tests for ReconAgent.run_from_xml()."""
+
+    @patch("src.agents.recon_agent.NmapWrapper")
+    @patch("src.agents.recon_agent.GobusterWrapper")
+    @patch("src.agents.recon_agent.CVEMapper")
+    def test_run_from_xml_populates_graph(
+        self,
+        MockCVEMapper: MagicMock,
+        MockGobuster: MagicMock,
+        MockNmap: MagicMock,
+        attack_graph: AttackGraph,
+        mock_nmap_result: NmapScanResult,
+        tmp_path: Path,
+    ) -> None:
+        """run_from_xml() should parse XML and populate the graph."""
+        mock_nmap_instance = MockNmap.return_value
+        mock_nmap_instance.parse_xml.return_value = mock_nmap_result
+
+        mock_cve_instance = MockCVEMapper.return_value
+        mock_cve_instance.map_services.return_value = []
+
+        xml_path = str(tmp_path / "scan.xml")
+        # Create a placeholder file so the agent accepts the path
+        with open(xml_path, "w") as f:
+            f.write("<nmaprun/>")
+
+        agent = ReconAgent(attack_graph=attack_graph, use_gobuster=False, use_cve_mapping=True)
+        result = agent.run_from_xml(xml_path, "10.10.10.5")
+
+        assert result.target == "10.10.10.5"
+        assert len(result.hosts) == 1
+        assert len(result.services) == 3
+        # Graph should have host + 3 service nodes
+        assert attack_graph.graph.number_of_nodes() >= 4
+
+    @patch("src.agents.recon_agent.NmapWrapper")
+    @patch("src.agents.recon_agent.GobusterWrapper")
+    @patch("src.agents.recon_agent.CVEMapper")
+    def test_run_from_xml_no_cve_mapping(
+        self,
+        MockCVEMapper: MagicMock,
+        MockGobuster: MagicMock,
+        MockNmap: MagicMock,
+        attack_graph: AttackGraph,
+        mock_nmap_result: NmapScanResult,
+        tmp_path: Path,
+    ) -> None:
+        """run_from_xml() with use_cve_mapping=False should skip CVE step."""
+        mock_nmap_instance = MockNmap.return_value
+        mock_nmap_instance.parse_xml.return_value = mock_nmap_result
+
+        mock_cve_instance = MockCVEMapper.return_value
+
+        xml_path = str(tmp_path / "scan.xml")
+        with open(xml_path, "w") as f:
+            f.write("<nmaprun/>")
+
+        agent = ReconAgent(attack_graph=attack_graph, use_gobuster=False, use_cve_mapping=False)
+        result = agent.run_from_xml(xml_path, "10.10.10.5")
+
+        mock_cve_instance.map_services.assert_not_called()
+        assert result.cve_candidates == []
+
+
+class TestReconAgentCVEGraphPopulation:
+    """Tests for CVE node insertion and graph linking."""
+
+    @patch("src.agents.recon_agent.NmapWrapper")
+    @patch("src.agents.recon_agent.GobusterWrapper")
+    @patch("src.agents.recon_agent.CVEMapper")
+    def test_cve_nodes_added_to_graph(
+        self,
+        MockCVEMapper: MagicMock,
+        MockGobuster: MagicMock,
+        MockNmap: MagicMock,
+        attack_graph: AttackGraph,
+        mock_nmap_result: NmapScanResult,
+    ) -> None:
+        """CVE candidates should be added as nodes in the attack graph."""
+        from src.tools.cve_mapper import CVECandidate, CVEMappingResult
+
+        mock_nmap_instance = MockNmap.return_value
+        mock_nmap_instance.scan.return_value = mock_nmap_result
+
+        mock_gb_instance = MockGobuster.return_value
+        mock_gb_instance.is_available.return_value = False
+
+        # Return one CVE candidate for the ftp service
+        cve_candidate = CVECandidate(
+            cve_id="CVE-2011-2523",
+            cvss_score=10.0,
+            description="vsftpd 2.3.4 backdoor",
+            source="knowledge_base",
+            confidence=0.8,
+        )
+        mapping_result = CVEMappingResult(
+            service_name="ftp",
+            service_version="2.3.4",
+            candidates=[cve_candidate],
+            total_found=1,
+        )
+        mock_cve_instance = MockCVEMapper.return_value
+        mock_cve_instance.map_services.return_value = [mapping_result]
+
+        agent = ReconAgent(attack_graph=attack_graph, use_gobuster=False, use_cve_mapping=True)
+        agent.run("10.10.10.5")
+
+        # CVE node should exist in graph
+        assert attack_graph.graph.has_node("cve:CVE-2011-2523")
+
+    @patch("src.agents.recon_agent.NmapWrapper")
+    @patch("src.agents.recon_agent.GobusterWrapper")
+    @patch("src.agents.recon_agent.CVEMapper")
+    def test_gobuster_endpoints_added_to_graph(
+        self,
+        MockCVEMapper: MagicMock,
+        MockGobuster: MagicMock,
+        MockNmap: MagicMock,
+        attack_graph: AttackGraph,
+        mock_nmap_result: NmapScanResult,
+    ) -> None:
+        """Gobuster-discovered endpoints should appear in the graph."""
+        from src.tools.gobuster_wrapper import GobusterResult, WebEndpoint
+
+        mock_nmap_instance = MockNmap.return_value
+        mock_nmap_instance.scan.return_value = mock_nmap_result
+
+        mock_gb_instance = MockGobuster.return_value
+        mock_gb_instance.is_available.return_value = True
+        mock_gb_instance.scan.return_value = GobusterResult(
+            target_url="http://10.10.10.5:80",
+            endpoints=[
+                WebEndpoint(
+                    url="http://10.10.10.5:80/admin",
+                    status_code=200,
+                    content_length=1024,
+                )
+            ],
+            scan_duration_seconds=5.0,
+            wordlist_used="/usr/share/wordlists/dirb/common.txt",
+            total_found=1,
+        )
+
+        mock_cve_instance = MockCVEMapper.return_value
+        mock_cve_instance.map_services.return_value = []
+
+        agent = ReconAgent(attack_graph=attack_graph, use_gobuster=True, use_cve_mapping=False)
+        result = agent.run("10.10.10.5")
+
+        assert len(result.web_endpoints) >= 1
+        # web endpoint node should exist
+        web_nodes = [
+            n for n in attack_graph.graph.nodes()
+            if n.startswith("web:")
+        ]
+        assert len(web_nodes) >= 1

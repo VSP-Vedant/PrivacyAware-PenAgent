@@ -24,9 +24,25 @@ class RoutingDecision:
 
     model: str
     route: Literal["LOCAL", "CLOUD"]
-    sensitivity_score: float
-    complexity_score: float
-    reasoning: str
+    sensitivity_score: float = 0.0
+    complexity_score: float = 0.0
+    reasoning: str = ""
+    # Aliases accepted by older test code that used 'sensitivity'/'complexity'
+    sensitivity: float = 0.0
+    complexity: float = 0.0
+
+    def __post_init__(self) -> None:
+        """Sync alias fields with canonical fields."""
+        # If caller used alias names, populate the canonical names
+        if self.sensitivity and not self.sensitivity_score:
+            self.sensitivity_score = self.sensitivity
+        if self.complexity and not self.complexity_score:
+            self.complexity_score = self.complexity
+        # Keep aliases in sync too
+        if self.sensitivity_score and not self.sensitivity:
+            self.sensitivity = self.sensitivity_score
+        if self.complexity_score and not self.complexity:
+            self.complexity = self.complexity_score
 
 
 class LLMRouter:

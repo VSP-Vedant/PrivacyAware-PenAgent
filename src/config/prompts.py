@@ -98,6 +98,9 @@ ROUTING RULES:
 - sensitivity > 0.6 OR complexity > 0.7 → CLOUD
 - Otherwise → LOCAL
 
+Task input: {task_input}
+Task type: {task_type}
+
 OUTPUT: {"sensitivity": float, "complexity": float, "route": "LOCAL"|"CLOUD",
 "reasoning": "one-line justification"}"""
 
@@ -129,3 +132,46 @@ OUTPUT FORMAT:
   },
   "recommended_post_exploitation": ["string"]
 }"""
+
+# ----------------------------------------------------------------------
+# PROMPTS registry — keyed by logical name for use with get_prompt()
+# ----------------------------------------------------------------------
+PROMPTS: dict[str, str] = {
+    "router_classification": ROUTER_SYSTEM_PROMPT,
+    "exploit_selection": EXPLOIT_SYSTEM_PROMPT,
+    "verification_post_mortem": VERIFICATION_SYSTEM_PROMPT,
+    "recon_analysis": RECON_SYSTEM_PROMPT,
+}
+
+
+def get_prompt(template_name: str, **kwargs: object) -> str:
+    """Retrieve and format a named prompt template.
+
+    Args:
+        template_name: Key from the PROMPTS registry
+            (e.g. ``"router_classification"``).
+        **kwargs: Variables to interpolate into the template with
+            ``str.format_map``.  Unknown keys are silently ignored.
+
+    Returns:
+        The formatted prompt string.
+
+    Raises:
+        ValueError: If *template_name* is not in the PROMPTS registry.
+    """
+    if template_name not in PROMPTS:
+        raise ValueError(
+            f"Unknown prompt template: '{template_name}'. "
+            f"Valid templates: {sorted(PROMPTS)}"
+        )
+
+    template = PROMPTS[template_name]
+    if kwargs:
+        # Use plain str.replace instead of format_map to avoid ValueError
+        # when template strings contain JSON-like braces (e.g. {"key": value}).
+        result = template
+        for key, value in kwargs.items():
+            result = result.replace("{" + key + "}", str(value))
+        return result
+    return template
+

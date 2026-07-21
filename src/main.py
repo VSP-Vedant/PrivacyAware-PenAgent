@@ -36,7 +36,8 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    run_id = f"{args.target.replace('/', '_')}_{int(time.time())}"
+    run_ts = int(time.time())
+    run_id = f"{args.target.replace('/', '_')}_{run_ts}"
     logger = get_run_logger(run_id)
 
     logger.info(
@@ -79,7 +80,7 @@ def main() -> None:
         )
 
         # Save persistence
-        db_path = f"runs/{args.target.replace('.', '_')}_{int(time.time())}.db"
+        db_path = f"runs/{args.target.replace('.', '_')}_{run_ts}.db"
         pm = PersistenceManager(db_path=db_path)
         pm.save_graph(final_state["attack_graph"].graph)
 

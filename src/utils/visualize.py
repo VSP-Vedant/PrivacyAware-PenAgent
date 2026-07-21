@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import networkx as nx
 
 from src.state.attack_graph import AttackGraph
-from src.utils.logger import setup_logger
+from src.utils.logging_config import setup_logger
 
 logger = setup_logger(__name__)
 

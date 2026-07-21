@@ -8,7 +8,7 @@ from pathlib import Path
 import networkx as nx
 
 from src.state.schemas import ExploitAttempt
-from src.utils.logger import setup_logger
+from src.utils.logging_config import setup_logger
 
 logger = setup_logger(__name__)
 

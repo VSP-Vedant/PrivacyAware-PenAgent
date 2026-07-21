@@ -65,7 +65,7 @@ SENSITIVITY_RULES: list[SensitivityRule] = [
         "description": "SSH/Private Key Header",
     },
     {
-        "pattern": re.compile(r"/etc/(?:passwd|shadow|hosts|shadow)"),  # Linux config
+        "pattern": re.compile(r"/etc/(?:passwd|shadow|hosts)"),  # Linux config
         "weight": 1.0,
         "description": "Critical Linux Config File",
     },

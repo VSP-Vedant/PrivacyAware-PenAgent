@@ -174,4 +174,3 @@ def get_prompt(template_name: str, **kwargs: object) -> str:
             result = result.replace("{" + key + "}", str(value))
         return result
     return template
-

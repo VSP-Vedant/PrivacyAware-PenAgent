@@ -358,7 +358,9 @@ class TestReconAgentRunFromXML:
         with open(xml_path, "w") as f:
             f.write("<nmaprun/>")
 
-        agent = ReconAgent(attack_graph=attack_graph, use_gobuster=False, use_cve_mapping=True)
+        agent = ReconAgent(
+            attack_graph=attack_graph, use_gobuster=False, use_cve_mapping=True
+        )
         result = agent.run_from_xml(xml_path, "10.10.10.5")
 
         assert result.target == "10.10.10.5"
@@ -389,7 +391,9 @@ class TestReconAgentRunFromXML:
         with open(xml_path, "w") as f:
             f.write("<nmaprun/>")
 
-        agent = ReconAgent(attack_graph=attack_graph, use_gobuster=False, use_cve_mapping=False)
+        agent = ReconAgent(
+            attack_graph=attack_graph, use_gobuster=False, use_cve_mapping=False
+        )
         result = agent.run_from_xml(xml_path, "10.10.10.5")
 
         mock_cve_instance.map_services.assert_not_called()
@@ -436,7 +440,9 @@ class TestReconAgentCVEGraphPopulation:
         mock_cve_instance = MockCVEMapper.return_value
         mock_cve_instance.map_services.return_value = [mapping_result]
 
-        agent = ReconAgent(attack_graph=attack_graph, use_gobuster=False, use_cve_mapping=True)
+        agent = ReconAgent(
+            attack_graph=attack_graph, use_gobuster=False, use_cve_mapping=True
+        )
         agent.run("10.10.10.5")
 
         # CVE node should exist in graph
@@ -478,13 +484,12 @@ class TestReconAgentCVEGraphPopulation:
         mock_cve_instance = MockCVEMapper.return_value
         mock_cve_instance.map_services.return_value = []
 
-        agent = ReconAgent(attack_graph=attack_graph, use_gobuster=True, use_cve_mapping=False)
+        agent = ReconAgent(
+            attack_graph=attack_graph, use_gobuster=True, use_cve_mapping=False
+        )
         result = agent.run("10.10.10.5")
 
         assert len(result.web_endpoints) >= 1
         # web endpoint node should exist
-        web_nodes = [
-            n for n in attack_graph.graph.nodes()
-            if n.startswith("web:")
-        ]
+        web_nodes = [n for n in attack_graph.graph.nodes() if n.startswith("web:")]
         assert len(web_nodes) >= 1

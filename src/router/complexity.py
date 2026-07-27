@@ -7,6 +7,7 @@ complexity score between 0.0 and 1.0.
 from __future__ import annotations
 
 from enum import Enum
+
 from src.utils.logging_config import setup_logger
 
 logger = setup_logger(__name__)

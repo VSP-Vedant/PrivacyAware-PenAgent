@@ -7,6 +7,7 @@ detecting sensitive data.
 from __future__ import annotations
 
 import pytest
+
 from src.router.sensitivity import classify_sensitivity
 
 

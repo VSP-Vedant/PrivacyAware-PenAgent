@@ -1,18 +1,23 @@
-"""Attack Graph state manager. Uses NetworkX to store all discoveries."""
+"""Attack Graph state manager. Uses NetworkX to store all discoveries.
+
+Owner: Parth (Member D)
+"""
+
+from __future__ import annotations
 
 from typing import Any
 
 import networkx as nx
 
 from src.state.persistence import PersistenceManager
-from src.state.schemas import EdgeType, HostNode, ServiceNode
+from src.state.schemas import EdgeType, ExploitAttempt, ExploitPostMortem, HostNode, ServiceNode
 
 
 class AttackGraph:
     """In-memory representation of the target network and vulnerabilities."""
 
     def __init__(self, db_path: str = "runs/pentest_state.db") -> None:
-        """Docstring."""
+        """Initialize the AttackGraph with SQLite persistence."""
         self.persistence = PersistenceManager(db_path)
         # Try to load existing graph, otherwise create a new empty one
         self.graph = self.persistence.load_graph() or nx.DiGraph()
@@ -47,3 +52,35 @@ class AttackGraph:
             if data.get("node_type") == "session":
                 return True
         return False
+
+    def record_exploit_attempt(self, attempt: ExploitAttempt) -> None:
+        """Persist an exploit attempt record via the persistence layer.
+
+        Public API used by ExploitAgent and VerificationAgent to avoid
+        direct coupling to the persistence layer.
+
+        Args:
+            attempt: The exploit attempt to record.
+        """
+        self.persistence.record_exploit_attempt(attempt)
+
+    def record_post_mortem(self, pm: ExploitPostMortem) -> None:
+        """Persist a post-mortem record via the persistence layer.
+
+        Args:
+            pm: The post-mortem to record.
+        """
+        self.persistence.record_post_mortem(pm)
+
+    def get_sessions(self) -> list[dict[str, Any]]:
+        """Return all session nodes in the attack graph.
+
+        Returns:
+            List of session node data dictionaries.
+        """
+        sessions = []
+        for _, data in self.graph.nodes(data=True):
+            if data.get("node_type") == "session":
+                sessions.append(data)
+        return sessions
+

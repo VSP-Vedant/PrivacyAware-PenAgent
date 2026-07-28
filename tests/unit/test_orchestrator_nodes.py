@@ -92,7 +92,7 @@ def test_exploit_node_with_exploitable(
 def test_verify_node_no_attempts(empty_state: PenTestState) -> None:
     result = verify_node(empty_state)
     assert result["current_phase"] == "verify"
-    assert result["step_count"] == 0  # Returns early
+    assert result["step_count"] == 0  # Returns early when no attempts
 
 
 @patch("src.agents.orchestrator.VerificationAgent")
@@ -104,15 +104,24 @@ def test_verify_node_with_attempts(
     )
     empty_state["exploit_attempts"].append(attempt)
 
-    # Setup mock
-    mock_instance = MagicMock()
+    # Build a VerificationResult-like mock
+    from src.agents.verification_agent import VerificationResult
+
     verified_attempt = ExploitAttempt(
         target_service_id="svc_1",
         module_used="test",
         result="success",
         session_id="123",
     )
-    mock_instance.verify.return_value = verified_attempt
+    mock_result = VerificationResult(
+        attempt=verified_attempt,
+        success=True,
+        privilege="user",
+        session_id=123,
+        post_mortem=None,
+    )
+    mock_instance = MagicMock()
+    mock_instance.verify_attempt.return_value = mock_result
     mock_verification_agent.return_value = mock_instance
 
     # Run node
@@ -121,7 +130,7 @@ def test_verify_node_with_attempts(
     assert result["current_phase"] == "verify"
     assert result["step_count"] == 1
     assert result["exploit_attempts"][-1].session_id == "123"
-    mock_instance.verify.assert_called_once_with(attempt)
+    mock_instance.verify_attempt.assert_called_once_with(attempt)
 
 
 def test_replan_node(empty_state: PenTestState) -> None:

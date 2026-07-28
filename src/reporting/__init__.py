@@ -1,1 +1,5 @@
-"""Report generation — PDF, JSON, and executive-summary outputs."""
+"""Report generation — HTML, Markdown, and JSON pentest report outputs."""
+
+from src.reporting.report_generator import ReportGenerator
+
+__all__ = ["ReportGenerator"]

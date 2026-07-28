@@ -1,14 +1,18 @@
-"""SQLite persistence layer for the attack graph."""
+"""SQLite persistence layer for the attack graph.
+
+Owner: Parth (Member D)
+"""
 
 import contextlib
 import json
 import sqlite3
 from pathlib import Path
+from typing import Any
 
 import networkx as nx
 
-from src.state.schemas import ExploitAttempt
-from src.utils.logging_config import setup_logger
+from src.state.schemas import ExploitAttempt, ExploitPostMortem
+from src.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
 
@@ -53,12 +57,29 @@ class PersistenceManager:
                     )
                     """
                 )
+                # Table for exploit post-mortems (Week 15–16)
+                cursor.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS post_mortems (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        target_service TEXT NOT NULL,
+                        module_used TEXT NOT NULL,
+                        error_type TEXT,
+                        raw_error TEXT,
+                        hypothesis TEXT,
+                        recommended_action TEXT,
+                        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                    """
+                )
                 conn.commit()
 
     def save_graph(self, graph: nx.DiGraph) -> None:
         """Serialize and save the NetworkX graph to SQLite."""
         try:
-            data = nx.node_link_data(graph)
+            # NetworkX 3.x: node_link_data produces a dict compatible with
+            # node_link_graph. No extra args needed for DiGraph.
+            data: dict[str, Any] = nx.node_link_data(graph)
             json_data = json.dumps(data)
             with contextlib.closing(sqlite3.connect(self.db_path)) as conn:
                 with conn:
@@ -91,7 +112,8 @@ class PersistenceManager:
                     if row:
                         data = json.loads(row[0])
                         logger.debug("Successfully loaded graph state from database.")
-                        return nx.node_link_graph(data)
+                        # directed=True ensures we get a DiGraph back (NetworkX 3.x)
+                        return nx.node_link_graph(data, directed=True, multigraph=False)
         except Exception as e:
             logger.error(
                 "Failed to load graph state", extra={"extra_data": {"error": str(e)}}
@@ -126,5 +148,36 @@ class PersistenceManager:
         except Exception as e:
             logger.error(
                 "Failed to record exploit attempt",
+                extra={"extra_data": {"error": str(e)}},
+            )
+
+    def record_post_mortem(self, pm: ExploitPostMortem) -> None:
+        """Save a structured post-mortem from a failed exploit attempt."""
+        try:
+            with contextlib.closing(sqlite3.connect(self.db_path)) as conn:
+                with conn:
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        """
+                        INSERT INTO post_mortems
+                        (target_service, module_used, error_type, raw_error,
+                         hypothesis, recommended_action, timestamp)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            pm.target_service,
+                            pm.module_used,
+                            pm.error_type,
+                            pm.raw_error,
+                            pm.hypothesis,
+                            pm.recommended_action,
+                            pm.timestamp,
+                        ),
+                    )
+                    conn.commit()
+            logger.debug("Post-mortem recorded for %s", pm.target_service)
+        except Exception as e:
+            logger.error(
+                "Failed to record post-mortem",
                 extra={"extra_data": {"error": str(e)}},
             )

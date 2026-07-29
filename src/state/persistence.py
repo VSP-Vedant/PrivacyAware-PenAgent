@@ -181,3 +181,68 @@ class PersistenceManager:
                 "Failed to record post-mortem",
                 extra={"extra_data": {"error": str(e)}},
             )
+
+    def get_exploit_attempts(
+        self, target_service_id: str | None = None
+    ) -> list[dict[str, Any]]:
+        """Query recorded exploit attempts from SQLite.
+
+        Args:
+            target_service_id: If provided, filter attempts to this service.
+                If ``None``, return all recorded attempts.
+
+        Returns:
+            List of dictionaries, each representing one exploit attempt
+            row with keys matching the ``exploit_attempts`` table columns.
+        """
+        try:
+            with contextlib.closing(sqlite3.connect(self.db_path)) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                if target_service_id is not None:
+                    cursor.execute(
+                        "SELECT * FROM exploit_attempts "
+                        "WHERE target_service_id = ? ORDER BY id",
+                        (target_service_id,),
+                    )
+                else:
+                    cursor.execute("SELECT * FROM exploit_attempts ORDER BY id")
+                return [dict(row) for row in cursor.fetchall()]
+        except Exception as e:
+            logger.error(
+                "Failed to query exploit attempts",
+                extra={"extra_data": {"error": str(e)}},
+            )
+        return []
+
+    def get_post_mortems(
+        self, target_service: str | None = None
+    ) -> list[dict[str, Any]]:
+        """Query recorded post-mortem analyses from SQLite.
+
+        Args:
+            target_service: If provided, filter post-mortems to this
+                service description.  If ``None``, return all records.
+
+        Returns:
+            List of dictionaries, each representing one post-mortem row.
+        """
+        try:
+            with contextlib.closing(sqlite3.connect(self.db_path)) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                if target_service is not None:
+                    cursor.execute(
+                        "SELECT * FROM post_mortems "
+                        "WHERE target_service = ? ORDER BY id",
+                        (target_service,),
+                    )
+                else:
+                    cursor.execute("SELECT * FROM post_mortems ORDER BY id")
+                return [dict(row) for row in cursor.fetchall()]
+        except Exception as e:
+            logger.error(
+                "Failed to query post-mortems",
+                extra={"extra_data": {"error": str(e)}},
+            )
+        return []

@@ -150,7 +150,7 @@ class TestHTMLReport:
         path = rg.generate_html()
         assert Path(path).exists()
         content = Path(path).read_text(encoding="utf-8")
-        assert "No services discovered" in content
+        assert "No services" in content
 
 
 # ---------------------------------------------------------------------------

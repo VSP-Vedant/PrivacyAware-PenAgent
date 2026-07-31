@@ -291,21 +291,44 @@ class ReportGenerator:
   <title>PenTest Report — {run_id}</title>
   <style>
     * {{ box-sizing: border-box; margin: 0; padding: 0; }}
-    body {{ font-family: 'Segoe UI', system-ui, sans-serif; background: #0d1117; color: #c9d1d9; line-height: 1.6; }}
+    body {{
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0d1117; color: #c9d1d9; line-height: 1.6;
+    }}
     .container {{ max-width: 1100px; margin: 0 auto; padding: 2rem; }}
     h1 {{ font-size: 2rem; color: #58a6ff; margin-bottom: 0.25rem; }}
     h2 {{ font-size: 1.2rem; color: #8b949e; font-weight: 400; margin-bottom: 2rem; }}
-    h3 {{ font-size: 1rem; color: #58a6ff; margin: 2rem 0 0.75rem; border-bottom: 1px solid #21262d; padding-bottom: 0.4rem; }}
-    .summary-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin: 1.5rem 0; }}
-    .card {{ background: #161b22; border: 1px solid #21262d; border-radius: 8px; padding: 1rem; text-align: center; }}
+    h3 {{
+      font-size: 1rem; color: #58a6ff; margin: 2rem 0 0.75rem;
+      border-bottom: 1px solid #21262d; padding-bottom: 0.4rem;
+    }}
+    .summary-grid {{
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 1rem; margin: 1.5rem 0;
+    }}
+    .card {{
+      background: #161b22; border: 1px solid #21262d;
+      border-radius: 8px; padding: 1rem; text-align: center;
+    }}
     .card .value {{ font-size: 2rem; font-weight: 700; color: #58a6ff; }}
-    .card .label {{ font-size: 0.8rem; color: #8b949e; text-transform: uppercase; letter-spacing: 0.05em; }}
-    .badge {{ display: inline-block; padding: 0.35em 0.75em; border-radius: 20px; font-weight: 700; font-size: 0.85rem; }}
+    .card .label {{
+      font-size: 0.8rem; color: #8b949e;
+      text-transform: uppercase; letter-spacing: 0.05em;
+    }}
+    .badge {{
+      display: inline-block; padding: 0.35em 0.75em;
+      border-radius: 20px; font-weight: 700; font-size: 0.85rem;
+    }}
     .badge.success {{ background: #196c2e; color: #3fb950; }}
     .badge.failure {{ background: #6e1414; color: #f85149; }}
     table {{ width: 100%; border-collapse: collapse; font-size: 0.875rem; }}
-    th {{ background: #161b22; color: #8b949e; text-align: left; padding: 0.6rem 0.8rem; border-bottom: 2px solid #21262d; }}
-    td {{ padding: 0.5rem 0.8rem; border-bottom: 1px solid #21262d; vertical-align: top; }}
+    th {{
+      background: #161b22; color: #8b949e; text-align: left;
+      padding: 0.6rem 0.8rem; border-bottom: 2px solid #21262d;
+    }}
+    td {{
+      padding: 0.5rem 0.8rem; border-bottom: 1px solid #21262d; vertical-align: top;
+    }}
     tr:hover td {{ background: #161b22; }}
     .meta {{ font-size: 0.8rem; color: #8b949e; margin-top: 0.5rem; }}
     .status-row {{ display: flex; align-items: center; gap: 1rem; margin: 1rem 0; }}
@@ -322,36 +345,72 @@ class ReportGenerator:
 
   <h3>📊 Summary</h3>
   <div class="summary-grid">
-    <div class="card"><div class="value">{s['total_hosts']}</div><div class="label">Hosts</div></div>
-    <div class="card"><div class="value">{s['total_services']}</div><div class="label">Services</div></div>
-    <div class="card"><div class="value">{s['total_cves']}</div><div class="label">CVEs</div></div>
-    <div class="card"><div class="value">{s['total_sessions']}</div><div class="label">Sessions</div></div>
-    <div class="card"><div class="value">{s['total_exploit_attempts']}</div><div class="label">Exploit Attempts</div></div>
-    <div class="card"><div class="value" style="color:#3fb950">{s['successful_exploits']}</div><div class="label">Successful</div></div>
+    <div class="card">
+      <div class="value">{s['total_hosts']}</div><div class="label">Hosts</div>
+    </div>
+    <div class="card">
+      <div class="value">{s['total_services']}</div><div class="label">Services</div>
+    </div>
+    <div class="card">
+      <div class="value">{s['total_cves']}</div><div class="label">CVEs</div>
+    </div>
+    <div class="card">
+      <div class="value">{s['total_sessions']}</div><div class="label">Sessions</div>
+    </div>
+    <div class="card">
+      <div class="value">{s['total_exploit_attempts']}</div>
+      <div class="label">Exploit Attempts</div>
+    </div>
+    <div class="card">
+      <div class="value" style="color:#3fb950">{s['successful_exploits']}</div>
+      <div class="label">Successful</div>
+    </div>
   </div>
 
   <h3>🖥 Discovered Services</h3>
   <table>
-    <thead><tr><th>Host IP</th><th>Port</th><th>Proto</th><th>Service</th><th>Product</th><th>Version</th><th>State</th></tr></thead>
-    <tbody>{svc_rows if svc_rows else '<tr><td colspan="7" style="color:#8b949e">No services discovered</td></tr>'}</tbody>
+    <thead>
+      <tr>
+        <th>Host IP</th><th>Port</th><th>Proto</th><th>Service</th>
+        <th>Product</th><th>Version</th><th>State</th>
+      </tr>
+    </thead>
+    <tbody>
+      {svc_rows if svc_rows else '<tr><td colspan="7">No services</td></tr>'}
+    </tbody>
   </table>
 
   <h3>🎯 CVE Candidates</h3>
   <table>
-    <thead><tr><th>CVE ID</th><th>CVSS</th><th>Severity</th><th>Description</th></tr></thead>
-    <tbody>{cve_rows if cve_rows else '<tr><td colspan="4" style="color:#8b949e">No CVEs mapped</td></tr>'}</tbody>
+    <thead>
+      <tr><th>CVE ID</th><th>CVSS</th><th>Severity</th><th>Description</th></tr>
+    </thead>
+    <tbody>
+      {cve_rows if cve_rows else '<tr><td colspan="4">No CVEs</td></tr>'}
+    </tbody>
   </table>
 
   <h3>💥 Exploit Attempts</h3>
   <table>
-    <thead><tr><th>Source</th><th>Module</th><th>Result</th><th>Error</th></tr></thead>
-    <tbody>{exp_rows if exp_rows else '<tr><td colspan="4" style="color:#8b949e">No exploit attempts recorded</td></tr>'}</tbody>
+    <thead>
+      <tr><th>Source</th><th>Module</th><th>Result</th><th>Error</th></tr>
+    </thead>
+    <tbody>
+      {exp_rows if exp_rows else '<tr><td colspan="4">No exploits</td></tr>'}
+    </tbody>
   </table>
 
   <h3>🐚 Active Sessions</h3>
   <table>
-    <thead><tr><th>Session ID</th><th>Host IP</th><th>Privilege</th><th>Shell Type</th><th>Opened At</th></tr></thead>
-    <tbody>{sess_rows if sess_rows else '<tr><td colspan="5" style="color:#8b949e">No sessions obtained</td></tr>'}</tbody>
+    <thead>
+      <tr>
+        <th>Session ID</th><th>Host IP</th><th>Privilege</th>
+        <th>Shell Type</th><th>Opened At</th>
+      </tr>
+    </thead>
+    <tbody>
+      {sess_rows if sess_rows else '<tr><td colspan="5">No sessions</td></tr>'}
+    </tbody>
   </table>
 </div>
 </body>

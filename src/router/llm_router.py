@@ -10,6 +10,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from typing import Literal
+
 from src.router.complexity import TaskType, classify_complexity
 from src.router.cost_tracker import CostTracker
 from src.router.sensitivity import classify_sensitivity

@@ -131,3 +131,18 @@ class CostTracker:
         self.total_output_tokens = 0
         self.total_cost_usd = 0.0
         logger.info("Cost tracker reset to zero usage")
+
+    def get_stats(self) -> dict[str, object]:
+        """Return a summary of cost tracking metrics.
+
+        Returns:
+            Dictionary with token counts and cost in USD.
+        """
+        return {
+            "total_cloud_tokens": self.total_input_tokens + self.total_output_tokens,
+            "total_input_tokens": self.total_input_tokens,
+            "total_output_tokens": self.total_output_tokens,
+            "total_cost_usd": self.total_cost_usd,
+            "budget_limit": self.max_cloud_tokens,
+            "budget_exceeded": self.is_budget_exceeded(),
+        }

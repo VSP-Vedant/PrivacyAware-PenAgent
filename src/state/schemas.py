@@ -337,3 +337,6 @@ class PenTestState(TypedDict):
     max_steps: int
     cloud_tokens_used: int
     findings: list[dict[str, Any]]
+    routing_decisions: list[dict[str, Any]]
+    exploit_candidates: list[dict[str, Any]]
+    router_enabled: bool

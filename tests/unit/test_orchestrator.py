@@ -11,7 +11,7 @@ from src.state.schemas import ExploitAttempt, PenTestState
 def empty_state() -> PenTestState:
     return {
         "target": "10.10.10.10",
-        "attack_graph": AttackGraph(),
+        "attack_graph": AttackGraph(":memory:"),
         "current_phase": "recon",
         "exploit_attempts": [],
         "sessions": [],
@@ -19,6 +19,9 @@ def empty_state() -> PenTestState:
         "max_steps": 10,
         "cloud_tokens_used": 0,
         "findings": [],
+        "routing_decisions": [],
+        "exploit_candidates": [],
+        "router_enabled": True,
     }
 
 

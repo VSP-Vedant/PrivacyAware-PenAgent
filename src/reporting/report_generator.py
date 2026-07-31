@@ -366,11 +366,11 @@ class ReportGenerator:
         lines: list[str] = []
 
         lines += [
-            f"# PrivacyAware-PenAgent — Penetration Test Report",
-            f"",
+            "# PrivacyAware-PenAgent — Penetration Test Report",
+            "",
             f"**Run ID:** `{data['run_id']}`  ",
             f"**Generated:** {data['generated_at']}  ",
-            f"",
+            "",
             "## Summary",
             "",
             "| Metric | Value |",
@@ -393,10 +393,10 @@ class ReportGenerator:
             ]
             for svc in data["services"]:
                 lines.append(
-                    f"| {svc.get('host_ip','')} | {svc.get('port','')} "
-                    f"| {svc.get('protocol','')} | {svc.get('name','')} "
-                    f"| {svc.get('product','')} | {svc.get('version','')} "
-                    f"| {svc.get('state','')} |"
+                    f"| {svc.get('host_ip', '')} | {svc.get('port', '')} "
+                    f"| {svc.get('protocol', '')} | {svc.get('name', '')} "
+                    f"| {svc.get('product', '')} | {svc.get('version', '')} "
+                    f"| {svc.get('state', '')} |"
                 )
         else:
             lines.append("*No services discovered.*")
@@ -412,7 +412,7 @@ class ReportGenerator:
             for cve in data["cves"]:
                 desc = cve.get("description", "")[:100]
                 lines.append(
-                    f"| {cve.get('cve_id','')} "
+                    f"| {cve.get('cve_id', '')} "
                     f"| {cve.get('cvss_score', 0):.1f} "
                     f"| {desc} |"
                 )
@@ -431,9 +431,9 @@ class ReportGenerator:
                 icon = "✅" if exp.get("result") == "success" else "❌"
                 pm = (exp.get("post_mortem") or "")[:80]
                 lines.append(
-                    f"| `{exp.get('module','')}` "
-                    f"| {icon} {exp.get('result','')} "
-                    f"| {exp.get('error_type','')} "
+                    f"| `{exp.get('module', '')}` "
+                    f"| {icon} {exp.get('result', '')} "
+                    f"| {exp.get('error_type', '')} "
                     f"| {pm} |"
                 )
         else:
@@ -449,10 +449,10 @@ class ReportGenerator:
             ]
             for sess in data["sessions"]:
                 lines.append(
-                    f"| {sess.get('session_id','')} "
-                    f"| {sess.get('host_ip','')} "
-                    f"| **{sess.get('privilege','')}** "
-                    f"| {sess.get('shell_type','')} |"
+                    f"| {sess.get('session_id', '')} "
+                    f"| {sess.get('host_ip', '')} "
+                    f"| **{sess.get('privilege', '')}** "
+                    f"| {sess.get('shell_type', '')} |"
                 )
         else:
             lines.append("*No sessions obtained.*")

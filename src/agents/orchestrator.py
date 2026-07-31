@@ -7,19 +7,30 @@ Week 17–18 enhancements (contributed by Vedant, Member C):
 - replan_node injects post-mortem context into state for next exploit
 - report_node calls ReportGenerator to produce HTML/Markdown output
 - verify_node uses the full VerificationAgent (not stub)
+
+Week 9–12 integration:
+- analyze_graph_node wires LLMRouter + LLMClient for exploit suggestions
+- exploit_node passes LLM-generated candidates to ExploitAgent
+- CostTracker updates cloud_tokens_used in state
 """
 
 from __future__ import annotations
 
+import json
 from typing import Any, Literal
 
 from langgraph.graph import END, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
-from src.agents.exploit_agent import ExploitAgent
+from src.agents.exploit_agent import ExploitAgent, ExploitCandidate
 from src.agents.recon_agent import ReconAgent
 from src.agents.verification_agent import VerificationAgent
+from src.config.prompts import get_prompt
 from src.reporting.report_generator import ReportGenerator
+from src.router.complexity import TaskType
+from src.router.cost_tracker import CostTracker
+from src.router.llm_client import LLMClient
+from src.router.llm_router import LLMRouter
 from src.state.attack_graph import AttackGraph
 from src.state.schemas import PenTestState
 from src.tools.metasploit_rpc import MetasploitRPCClient
@@ -29,6 +40,11 @@ logger = setup_logger(__name__)
 
 # Module-level instances for tools that maintain connections
 msf_client = MetasploitRPCClient()
+
+# Module-level LLM infrastructure (shared across nodes)
+_router = LLMRouter()
+_llm_client = LLMClient()
+_cost_tracker = CostTracker()
 
 # Maximum exploit attempts before forcing report (safety guard)
 _MAX_EXPLOIT_ATTEMPTS = 9
@@ -54,8 +70,129 @@ def recon_node(state: PenTestState) -> PenTestState:
 
 
 def analyze_graph_node(state: PenTestState) -> PenTestState:
-    """Analyse the attack graph to determine next steps."""
+    """Analyse the attack graph and generate exploit candidates via LLM.
+
+    Uses the LLMRouter to decide whether to route the exploit selection
+    task to a local (Ollama) or cloud (OpenAI/Anthropic) model, then
+    invokes the LLMClient to generate module recommendations.
+    """
     logger.info("Executing analyze_graph node")
+    ag: AttackGraph = state["attack_graph"]
+
+    # Query exploitable services from the attack graph
+    exploitable = ag.get_exploitable_services()
+    if not exploitable:
+        logger.info("No exploitable services — skipping LLM analysis")
+        state["step_count"] += 1
+        return state
+
+    # Build a summary of services and CVEs for LLM input
+    service_summaries: list[str] = []
+    for svc in exploitable:
+        svc_desc = (
+            f"Service: {svc.get('name', 'unknown')} "
+            f"({svc.get('product', '')} {svc.get('version', '')}) "
+            f"on port {svc.get('port', '?')}"
+        )
+        # Include associated CVEs if available
+        node_id = svc.get("node_id", "")
+        cves = ag.get_cves_for_service(node_id) if node_id else []
+        if cves:
+            cve_strs = [
+                f"{c.get('cve_id', '?')} (CVSS {c.get('cvss_score', '?')})"
+                for c in cves
+            ]
+            svc_desc += f" | CVEs: {', '.join(cve_strs)}"
+        service_summaries.append(svc_desc)
+
+    task_input = "\n".join(service_summaries)
+
+    # Include prior failure context for replanning iterations
+    prior_failures: list[dict[str, Any]] = []
+    for finding in state.get("findings", []):
+        if "error_type" in finding:
+            prior_failures.append(finding)
+
+    # ── LLM Router decision ──────────────────────────────────────
+    if state.get("router_enabled", True):
+        decision = _router.route(
+            task_input=task_input,
+            task_type=TaskType.MULTI_CVE_CHAIN,
+        )
+        # Record the decision
+        state["routing_decisions"].append(
+            {
+                "route": decision.route,
+                "model": decision.model,
+                "sensitivity": decision.sensitivity_score,
+                "complexity": decision.complexity_score,
+                "reasoning": decision.reasoning,
+            }
+        )
+        logger.info(
+            "LLM Router decision: route=%s model=%s",
+            decision.route,
+            decision.model,
+        )
+    else:
+        # Ablation mode: force local routing
+        decision = _router.route(
+            task_input=task_input,
+            task_type=TaskType.MULTI_CVE_CHAIN,
+            force_route="LOCAL",
+        )
+        state["routing_decisions"].append(
+            {
+                "route": "LOCAL",
+                "model": decision.model,
+                "reasoning": "Router disabled (--no-router ablation)",
+            }
+        )
+        logger.info("Router disabled — forcing LOCAL route")
+
+    # ── LLM exploit suggestion ───────────────────────────────────
+    prompt = get_prompt(
+        "exploit_selection",
+        service_info=task_input,
+        cve_candidates=task_input,
+    )
+
+    # Append prior failure context to prompt if replanning
+    if prior_failures:
+        failure_text = json.dumps(prior_failures[-3:], indent=2)
+        prompt += f"\n\nPRIOR FAILURES (avoid these modules):\n{failure_text}"
+
+    llm_response = _llm_client.generate(decision, prompt)
+
+    # Track cost
+    prompt_tokens = len(prompt) // 4
+    response_tokens = len(llm_response) // 4
+    if decision.route == "CLOUD":
+        _cost_tracker.add_run(decision.model, prompt_tokens, response_tokens)
+        state["cloud_tokens_used"] += prompt_tokens + response_tokens
+
+    # ── Parse LLM response into candidates ───────────────────────
+    candidates: list[dict[str, Any]] = []
+    try:
+        parsed = json.loads(llm_response)
+        recommendations = parsed.get("recommendations", [])
+        for rec in recommendations:
+            candidates.append(
+                {
+                    "module_path": rec.get("module_path", ""),
+                    "payload": rec.get("payload", rec.get("recommended_payload", "")),
+                    "confidence": rec.get(
+                        "confidence", rec.get("confidence_score", 0.5)
+                    ),
+                    "source": "llm",
+                }
+            )
+    except (json.JSONDecodeError, TypeError, AttributeError) as e:
+        logger.warning("Failed to parse LLM response as JSON: %s", e)
+
+    state["exploit_candidates"] = candidates
+    logger.info("LLM generated %d exploit candidates", len(candidates))
+
     state["step_count"] += 1
     return state
 
@@ -76,10 +213,34 @@ def exploit_node(state: PenTestState) -> PenTestState:
         logger.warning("No exploitable services found")
         return state
 
+    # Build ExploitCandidate objects from LLM suggestions
+    llm_candidates: list[ExploitCandidate] | None = None
+    raw_candidates = state.get("exploit_candidates", [])
+    if raw_candidates:
+        llm_candidates = []
+        for svc in exploitable:
+            host_ip = svc.get("host_ip", state["target"])
+            port = svc.get("port", 0)
+            service_id = svc.get("node_id", f"service:{host_ip}:{port}/tcp")
+            for cand in raw_candidates:
+                llm_candidates.append(
+                    ExploitCandidate(
+                        module_path=cand.get("module_path", ""),
+                        service_id=service_id,
+                        target_ip=host_ip,
+                        target_port=port,
+                        payload=cand.get("payload", "generic/shell_reverse_tcp"),
+                        confidence=float(cand.get("confidence", 0.5)),
+                        source="llm",
+                    )
+                )
+        # Clear candidates after consumption
+        state["exploit_candidates"] = []
+
     # Run the real Exploit Agent
     agent = ExploitAgent(attack_graph=ag, msf_client=msf_client)
     try:
-        result = agent.run(state["target"])
+        result = agent.run(state["target"], candidates=llm_candidates)
         # Append attempts to state
         state["exploit_attempts"].extend(result.attempts)
     except Exception as e:
@@ -176,6 +337,15 @@ def report_node(state: PenTestState) -> PenTestState:
         state["findings"].append({"reports": paths})
     except Exception as e:
         logger.error("Report generation failed: %s", e)
+
+    # Log cost summary
+    stats = _cost_tracker.get_stats()
+    logger.info(
+        "Cost summary: cloud_tokens=%d total_usd=%.4f",
+        stats.get("total_cloud_tokens", 0),
+        stats.get("total_cost_usd", 0.0),
+    )
+    state["findings"].append({"cost_summary": stats})
 
     state["step_count"] += 1
     return state

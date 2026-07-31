@@ -20,14 +20,16 @@ from src.state.schemas import HostNode, ServiceNode, SessionNode
 # ---------------------------------------------------------------------------
 
 
+from pathlib import Path
+
 @pytest.fixture
-def empty_graph(tmp_path) -> AttackGraph:
+def empty_graph(tmp_path: Path) -> AttackGraph:
     """A fresh AttackGraph with no nodes."""
     return AttackGraph(db_path=str(tmp_path / "test.db"))
 
 
 @pytest.fixture
-def populated_graph(tmp_path) -> AttackGraph:
+def populated_graph(tmp_path: Path) -> AttackGraph:
     """AttackGraph with host, service, and session nodes for testing."""
     ag = AttackGraph(db_path=str(tmp_path / "test.db"))
 
@@ -69,7 +71,7 @@ def populated_graph(tmp_path) -> AttackGraph:
 
 
 @pytest.fixture
-def report_dir(tmp_path) -> str:
+def report_dir(tmp_path: Path) -> str:
     return str(tmp_path / "reports")
 
 
@@ -79,7 +81,7 @@ def report_dir(tmp_path) -> str:
 
 
 class TestReportGeneratorInit:
-    def test_creates_output_dir(self, empty_graph: AttackGraph, tmp_path) -> None:
+    def test_creates_output_dir(self, empty_graph: AttackGraph, tmp_path: Path) -> None:
         out = str(tmp_path / "new_reports")
         ReportGenerator(attack_graph=empty_graph, output_dir=out)
         assert Path(out).exists()

@@ -33,6 +33,16 @@ def main() -> None:
     parser.add_argument(
         "--no-graph", action="store_true", help="Ablation: Disable state graph"
     )
+    parser.add_argument(
+        "--no-verify",
+        action="store_true",
+        help="Ablation: Disable verification agent",
+    )
+    parser.add_argument(
+        "--visualize",
+        action="store_true",
+        help="Generate attack graph visualization after run",
+    )
 
     args = parser.parse_args()
 
@@ -54,6 +64,12 @@ def main() -> None:
     if args.no_graph:
         logger.warning("Graph ablation mode enabled. Graph state will not be tracked.")
 
+    if args.no_router:
+        logger.info("Router ablation mode enabled. Forcing local LLM only.")
+
+    if args.no_verify:
+        logger.info("Verification ablation mode enabled. Skipping verify node.")
+
     # Initialize state
     initial_state: PenTestState = {
         "target": args.target,
@@ -65,6 +81,9 @@ def main() -> None:
         "max_steps": MAX_TOTAL_STEPS,
         "cloud_tokens_used": 0,
         "findings": [],
+        "routing_decisions": [],
+        "exploit_candidates": [],
+        "router_enabled": not args.no_router,
     }
 
     # Build LangGraph
@@ -83,6 +102,25 @@ def main() -> None:
         db_path = f"runs/{args.target.replace('.', '_')}_{run_ts}.db"
         pm = PersistenceManager(db_path=db_path)
         pm.save_graph(final_state["attack_graph"].graph)
+
+        # Generate visualization if requested
+        if args.visualize:
+            from src.utils.visualize import visualize_attack_graph
+
+            output_file = f"runs/{run_id}_attack_graph.png"
+            visualize_attack_graph(final_state["attack_graph"], output_file)
+            logger.info("Attack graph visualization saved to %s", output_file)
+
+        # Log routing summary
+        routing_decisions = final_state.get("routing_decisions", [])
+        if routing_decisions:
+            cloud_count = sum(1 for d in routing_decisions if d.get("route") == "CLOUD")
+            local_count = sum(1 for d in routing_decisions if d.get("route") == "LOCAL")
+            logger.info(
+                "Routing summary: %d cloud, %d local decisions",
+                cloud_count,
+                local_count,
+            )
 
     except Exception as e:
         logger.error("Graph execution failed", extra={"error": str(e)}, exc_info=True)

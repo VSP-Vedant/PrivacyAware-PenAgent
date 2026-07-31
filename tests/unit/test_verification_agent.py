@@ -5,13 +5,13 @@ Owner: Vedant (Member C)
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
-
 import pytest
+from unittest.mock import MagicMock
 
 from src.agents.verification_agent import VerificationAgent, VerificationResult
 from src.state.attack_graph import AttackGraph
 from src.state.schemas import ExploitAttempt, ExploitPostMortem, PrivilegeLevel
+from src.tools.metasploit_rpc import SessionInfo
 
 
 # ---------------------------------------------------------------------------
@@ -19,8 +19,10 @@ from src.state.schemas import ExploitAttempt, ExploitPostMortem, PrivilegeLevel
 # ---------------------------------------------------------------------------
 
 
+from pathlib import Path
+
 @pytest.fixture
-def mock_graph(tmp_path) -> AttackGraph:
+def mock_graph(tmp_path: Path) -> AttackGraph:
     """Provide a fresh AttackGraph backed by a temp SQLite database."""
     return AttackGraph(db_path=str(tmp_path / "test.db"))
 
@@ -133,11 +135,10 @@ class TestVerificationAgentWithMSF:
 
     def _make_msf(
         self,
-        sessions: list | None = None,
+        sessions: list[SessionInfo] | None = None,
         id_output: str = "uid=1000(bob) gid=1000(bob)",
     ) -> MagicMock:
         """Build a minimal MSF client mock."""
-        from src.tools.metasploit_rpc import SessionInfo
 
         mock_msf = MagicMock()
         mock_msf.is_connected.return_value = True

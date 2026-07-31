@@ -107,3 +107,17 @@ def test_reset() -> None:
     assert tracker.total_input_tokens == 0
     assert tracker.total_output_tokens == 0
     assert tracker.total_cost_usd == 0.0
+
+
+def test_get_stats() -> None:
+    """Test get_stats returns a summary dict with expected keys."""
+    tracker = CostTracker(max_cloud_tokens=50000)
+    tracker.add_run(model="gpt-4o", input_tokens=500, output_tokens=200)
+
+    stats = tracker.get_stats()
+    assert stats["total_cloud_tokens"] == 700
+    assert stats["total_input_tokens"] == 500
+    assert stats["total_output_tokens"] == 200
+    assert isinstance(stats["total_cost_usd"], float)
+    assert stats["budget_limit"] == 50000
+    assert stats["budget_exceeded"] is False

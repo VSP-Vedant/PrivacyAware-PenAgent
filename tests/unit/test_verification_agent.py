@@ -18,6 +18,7 @@ from src.state.schemas import ExploitAttempt, ExploitPostMortem, PrivilegeLevel
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def mock_graph(tmp_path) -> AttackGraph:
     """Provide a fresh AttackGraph backed by a temp SQLite database."""
@@ -92,6 +93,7 @@ class TestVerificationAgentNoMSF:
         """A failed attempt must write a failure edge to the graph."""
         # Add the service node first so the edge source exists
         from src.state.schemas import ServiceNode
+
         svc = ServiceNode(host_ip="10.10.11.10", port=21, protocol="tcp", name="ftp")
         mock_graph.add_service(svc)
 
@@ -100,8 +102,7 @@ class TestVerificationAgentNoMSF:
 
         # Check failure node was added to graph
         failure_nodes = [
-            n for n in mock_graph.graph.nodes()
-            if str(n).startswith("failure:")
+            n for n in mock_graph.graph.nodes() if str(n).startswith("failure:")
         ]
         assert len(failure_nodes) >= 1
 
@@ -114,7 +115,10 @@ class TestVerificationAgentNoMSF:
 
         import contextlib
         import sqlite3
-        with contextlib.closing(sqlite3.connect(mock_graph.persistence.db_path)) as conn:
+
+        with contextlib.closing(
+            sqlite3.connect(mock_graph.persistence.db_path)
+        ) as conn:
             rows = conn.execute("SELECT * FROM post_mortems").fetchall()
         assert len(rows) == 1
 

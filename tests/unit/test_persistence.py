@@ -42,9 +42,7 @@ class TestGraphSaveLoad:
         """Verify a graph with nodes survives round-trip."""
         graph = nx.DiGraph()
         graph.add_node("host:10.10.10.5", node_type="host", ip="10.10.10.5")
-        graph.add_node(
-            "service:10.10.10.5:22/tcp", node_type="service", port=22
-        )
+        graph.add_node("service:10.10.10.5:22/tcp", node_type="service", port=22)
         graph.add_edge(
             "host:10.10.10.5",
             "service:10.10.10.5:22/tcp",
@@ -74,17 +72,13 @@ class TestGraphSaveLoad:
         assert "host:10.10.10.6" in loaded.nodes
         assert "host:10.10.10.5" not in loaded.nodes
 
-    def test_load_graph_returns_none_when_empty(
-        self, tmp_path: Path
-    ) -> None:
+    def test_load_graph_returns_none_when_empty(self, tmp_path: Path) -> None:
         """Verify load_graph returns None when no graph has been saved."""
         fresh_pm = PersistenceManager(db_path=str(tmp_path / "empty.db"))
         loaded = fresh_pm.load_graph()
         assert loaded is None
 
-    def test_graph_preserves_edge_attributes(
-        self, pm: PersistenceManager
-    ) -> None:
+    def test_graph_preserves_edge_attributes(self, pm: PersistenceManager) -> None:
         """Verify edge attributes survive serialization round-trip."""
         graph = nx.DiGraph()
         graph.add_node("a", label="node_a")
@@ -125,10 +119,7 @@ class TestGraphSaveLoad:
         assert loaded.nodes["service:10.10.10.5:80/tcp"]["node_type"] == "service"
         assert loaded.nodes["cve:CVE-2021-44228"]["node_type"] == "cve"
         assert loaded.nodes["session:1"]["node_type"] == "session"
-        assert (
-            loaded.nodes["web:10.10.10.5:80/admin"]["node_type"]
-            == "web_endpoint"
-        )
+        assert loaded.nodes["web:10.10.10.5:80/admin"]["node_type"] == "web_endpoint"
 
 
 # ── Exploit attempt recording and querying ──────────────────
@@ -168,9 +159,7 @@ class TestExploitAttempts:
         # Verify ordering by ID
         assert results[0]["id"] < results[1]["id"] < results[2]["id"]
 
-    def test_query_attempts_filtered_by_service(
-        self, pm: PersistenceManager
-    ) -> None:
+    def test_query_attempts_filtered_by_service(self, pm: PersistenceManager) -> None:
         """Verify filtered query returns only matching service."""
         pm.record_exploit_attempt(
             ExploitAttempt(
@@ -235,9 +224,7 @@ class TestExploitAttempts:
 class TestPostMortems:
     """Tests for record_post_mortem() and get_post_mortems()."""
 
-    def test_record_and_query_post_mortem(
-        self, pm: PersistenceManager
-    ) -> None:
+    def test_record_and_query_post_mortem(self, pm: PersistenceManager) -> None:
         """Verify a post-mortem can be recorded and queried."""
         post_mortem = ExploitPostMortem(
             target_service="SSH on port 22",
@@ -254,9 +241,7 @@ class TestPostMortems:
         assert results[0]["hypothesis"] == "Service patched"
         assert results[0]["recommended_action"] == "try_alternative_module"
 
-    def test_record_multiple_post_mortems(
-        self, pm: PersistenceManager
-    ) -> None:
+    def test_record_multiple_post_mortems(self, pm: PersistenceManager) -> None:
         """Verify multiple post-mortems are recorded in order."""
         for i in range(3):
             pm.record_post_mortem(
@@ -270,9 +255,7 @@ class TestPostMortems:
         results = pm.get_post_mortems()
         assert len(results) == 3
 
-    def test_query_post_mortems_filtered(
-        self, pm: PersistenceManager
-    ) -> None:
+    def test_query_post_mortems_filtered(self, pm: PersistenceManager) -> None:
         """Verify filtered query returns only matching service."""
         pm.record_post_mortem(
             ExploitPostMortem(
@@ -291,9 +274,7 @@ class TestPostMortems:
         assert len(ftp_pms) == 1
         assert ftp_pms[0]["module_used"] == "exploit/ftp/test"
 
-    def test_query_post_mortems_no_match(
-        self, pm: PersistenceManager
-    ) -> None:
+    def test_query_post_mortems_no_match(self, pm: PersistenceManager) -> None:
         """Verify filtered query returns empty when no match."""
         pm.record_post_mortem(
             ExploitPostMortem(
@@ -305,9 +286,7 @@ class TestPostMortems:
         results = pm.get_post_mortems("HTTP on port 80")
         assert results == []
 
-    def test_post_mortem_all_fields_recorded(
-        self, pm: PersistenceManager
-    ) -> None:
+    def test_post_mortem_all_fields_recorded(self, pm: PersistenceManager) -> None:
         """Verify all ExploitPostMortem fields are stored and returned."""
         post_mortem = ExploitPostMortem(
             target_service="FTP on port 21",

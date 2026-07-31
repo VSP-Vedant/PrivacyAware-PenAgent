@@ -116,11 +116,14 @@ def verify_node(state: PenTestState) -> PenTestState:
     # Track confirmed sessions
     if result.success and result.session_id is not None:
         from src.state.schemas import SessionNode
+
         session_node = SessionNode(
             session_id=str(result.session_id),
-            host_ip=last_attempt.target_service_id.split(":")[1]
-            if ":" in last_attempt.target_service_id
-            else state["target"],
+            host_ip=(
+                last_attempt.target_service_id.split(":")[1]
+                if ":" in last_attempt.target_service_id
+                else state["target"]
+            ),
             privilege=result.privilege,
         )
         state["sessions"].append(session_node)

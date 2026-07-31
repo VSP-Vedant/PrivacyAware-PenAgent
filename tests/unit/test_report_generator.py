@@ -85,7 +85,9 @@ class TestReportGeneratorInit:
         assert Path(out).exists()
 
     def test_run_id_stored(self, empty_graph: AttackGraph, report_dir: str) -> None:
-        rg = ReportGenerator(attack_graph=empty_graph, output_dir=report_dir, run_id="myrun")
+        rg = ReportGenerator(
+            attack_graph=empty_graph, output_dir=report_dir, run_id="myrun"
+        )
         assert rg._run_id == "myrun"
 
 
@@ -98,7 +100,9 @@ class TestHTMLReport:
     def test_generates_html_file(
         self, populated_graph: AttackGraph, report_dir: str
     ) -> None:
-        rg = ReportGenerator(attack_graph=populated_graph, output_dir=report_dir, run_id="test")
+        rg = ReportGenerator(
+            attack_graph=populated_graph, output_dir=report_dir, run_id="test"
+        )
         path = rg.generate_html()
         assert Path(path).exists()
         assert path.endswith(".html")
@@ -140,7 +144,9 @@ class TestHTMLReport:
         assert "</html>" in content
 
     def test_empty_graph_html(self, empty_graph: AttackGraph, report_dir: str) -> None:
-        rg = ReportGenerator(attack_graph=empty_graph, output_dir=report_dir, run_id="empty")
+        rg = ReportGenerator(
+            attack_graph=empty_graph, output_dir=report_dir, run_id="empty"
+        )
         path = rg.generate_html()
         assert Path(path).exists()
         content = Path(path).read_text(encoding="utf-8")
@@ -156,7 +162,9 @@ class TestMarkdownReport:
     def test_generates_md_file(
         self, populated_graph: AttackGraph, report_dir: str
     ) -> None:
-        rg = ReportGenerator(attack_graph=populated_graph, output_dir=report_dir, run_id="test")
+        rg = ReportGenerator(
+            attack_graph=populated_graph, output_dir=report_dir, run_id="test"
+        )
         path = rg.generate_markdown()
         assert Path(path).exists()
         assert path.endswith(".md")
@@ -180,7 +188,9 @@ class TestMarkdownReport:
         assert "2.3.4" in content
 
     def test_empty_graph_md(self, empty_graph: AttackGraph, report_dir: str) -> None:
-        rg = ReportGenerator(attack_graph=empty_graph, output_dir=report_dir, run_id="empty")
+        rg = ReportGenerator(
+            attack_graph=empty_graph, output_dir=report_dir, run_id="empty"
+        )
         path = rg.generate_markdown()
         assert Path(path).exists()
         content = Path(path).read_text()
@@ -196,7 +206,9 @@ class TestJSONReport:
     def test_generates_json_file(
         self, populated_graph: AttackGraph, report_dir: str
     ) -> None:
-        rg = ReportGenerator(attack_graph=populated_graph, output_dir=report_dir, run_id="test")
+        rg = ReportGenerator(
+            attack_graph=populated_graph, output_dir=report_dir, run_id="test"
+        )
         path = rg.generate_json()
         assert Path(path).exists()
         assert path.endswith(".json")

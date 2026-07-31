@@ -186,9 +186,7 @@ class TestAddWebEndpoint:
         ag.add_web_endpoint(
             WebEndpointNode(host_ip="10.10.10.5", port=80, url="/login")
         )
-        ag.add_web_endpoint(
-            WebEndpointNode(host_ip="10.10.10.5", port=80, url="/api")
-        )
+        ag.add_web_endpoint(WebEndpointNode(host_ip="10.10.10.5", port=80, url="/api"))
 
         endpoints = ag.get_web_endpoints()
         assert len(endpoints) == 3
@@ -230,9 +228,7 @@ class TestAddSession:
 
     def test_session_privilege_stored(self, ag: AttackGraph) -> None:
         """Verify session privilege level is stored in node data."""
-        session = SessionNode(
-            session_id="1", host_ip="10.10.10.5", privilege="root"
-        )
+        session = SessionNode(session_id="1", host_ip="10.10.10.5", privilege="root")
         ag.add_session(session)
 
         data = ag.graph.nodes["session:1"]
@@ -280,9 +276,7 @@ class TestRecordFailure:
         assert len(failures) == 1
         assert failures[0]["error_type"] == "no_session"
 
-    def test_record_failure_creates_exploit_attempt_edge(
-        self, ag: AttackGraph
-    ) -> None:
+    def test_record_failure_creates_exploit_attempt_edge(self, ag: AttackGraph) -> None:
         """Verify record_failure creates an edge from service to failure."""
         svc = ServiceNode(host_ip="10.10.10.5", port=22, name="ssh")
         ag.add_service(svc)
@@ -526,9 +520,7 @@ class TestPersistenceRoundTrip:
         ag1.add_service(
             ServiceNode(host_ip="10.10.10.5", port=22, name="ssh", version="7.6")
         )
-        ag1.add_service(
-            ServiceNode(host_ip="10.10.10.5", port=80, name="http")
-        )
+        ag1.add_service(ServiceNode(host_ip="10.10.10.5", port=80, name="http"))
         ag1.add_cve(
             CVENode(cve_id="CVE-2018-10933", cvss_score=9.1),
             "service:10.10.10.5:22/tcp",

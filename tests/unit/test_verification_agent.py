@@ -21,6 +21,7 @@ from src.tools.metasploit_rpc import SessionInfo
 
 from pathlib import Path
 
+
 @pytest.fixture
 def mock_graph(tmp_path: Path) -> AttackGraph:
     """Provide a fresh AttackGraph backed by a temp SQLite database."""

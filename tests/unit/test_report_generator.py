@@ -22,6 +22,7 @@ from src.state.schemas import HostNode, ServiceNode, SessionNode
 
 from pathlib import Path
 
+
 @pytest.fixture
 def empty_graph(tmp_path: Path) -> AttackGraph:
     """A fresh AttackGraph with no nodes."""

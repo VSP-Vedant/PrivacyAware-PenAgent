@@ -91,7 +91,7 @@ def test_ollama_model(model_name: str, prompt: str) -> dict[str, Any]:
     }
     start_time = time.time()
     try:
-        response = requests.post(url, json=data, timeout=30)
+        response = requests.post(url, json=data, timeout=300)
         latency = time.time() - start_time
         if response.status_code == 200:
             result = response.json()

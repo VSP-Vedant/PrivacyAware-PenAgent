@@ -1,17 +1,17 @@
 # LLM Benchmarking Report
 
 > **System Latency and Response Validity Benchmarks**
-> **Date:** 2026-07-17 21:44:36
+> **Date:** 2026-08-01 13:44:49
 
 ## 1. Summary of Latency (seconds)
 
 | Prompt / Task | llama3:8b | mistral:7b | gpt-4o-mini | gpt-4o |
 |---|---|---|---|---|
-| P1: FORMAT_OUTPUT | N/A | N/A | N/A | N/A | 
-| P2: COMMAND_TEMPLATE | N/A | N/A | N/A | N/A | 
-| P3: CVE_LOOKUP | N/A | N/A | N/A | N/A | 
-| P4: EXPLOIT_SELECTION | N/A | N/A | N/A | N/A | 
-| P5: PRIV_ESC_REASONING | N/A | N/A | N/A | N/A | 
+| P1: FORMAT_OUTPUT | 44.74s | 16.34s | N/A | N/A | 
+| P2: COMMAND_TEMPLATE | 4.11s | 3.4s | N/A | N/A | 
+| P3: CVE_LOOKUP | 6.44s | 5.8s | N/A | N/A | 
+| P4: EXPLOIT_SELECTION | 2.72s | 3.65s | N/A | N/A | 
+| P5: PRIV_ESC_REASONING | 6.01s | 4.21s | N/A | N/A | 
 
 *Note: N/A indicates the model was not configured or failed to respond.*
 
@@ -24,12 +24,48 @@
 - **Sensitive Data:** `NO`
 
 #### Model: llama3:8b
-- **Status:** FAILED
-- **Error:** `Ollama not running`
+- **Latency:** 44.74 seconds
+- **Response Sample:**
+  ```
+  Here is the formatted JSON array:
+
+```
+[
+  {
+    "port": 22,
+    "service": "ssh",
+    "state": "open",
+    "version": "OpenSSH 8.2p1"
+  },
+  {
+    "port": 80,
+    "service": "http",
+    "state": "open",
+    "version": "Apache httpd 2.4.41"
+  }
+]
+``` ... [TRUNCATED]
+  ```
 
 #### Model: mistral:7b
-- **Status:** FAILED
-- **Error:** `Ollama not running`
+- **Latency:** 16.34 seconds
+- **Response Sample:**
+  ```
+  [
+  {
+    "port": 22,
+    "service": "ssh",
+    "state": "open",
+    "version": "OpenSSH 8.2p1"
+  },
+  {
+    "port": 80,
+    "service": "http",
+    "state": "open",
+    "version": "Apache httpd 2.4.41"
+  }
+]
+  ```
 
 #### Model: gpt-4o-mini
 - **Status:** FAILED
@@ -46,12 +82,36 @@
 - **Sensitive Data:** `NO`
 
 #### Model: llama3:8b
-- **Status:** FAILED
-- **Error:** `Ollama not running`
+- **Latency:** 4.11 seconds
+- **Response Sample:**
+  ```
+  Here is the base Nmap command you can use:
+
+```
+nmap -sV -O -p- --script=default -oX scan.xml 10.10.10.1
+```
+
+Let's break it down:
+
+* `-sV` enables version detection, which will try to determine the version of services running on the target.
+* `-O` e ... [TRUNCATED]
+  ```
 
 #### Model: mistral:7b
-- **Status:** FAILED
-- **Error:** `Ollama not running`
+- **Latency:** 3.4 seconds
+- **Response Sample:**
+  ```
+  The Nmap command you're looking for is as follows:
+
+```bash
+nmap -p- --script=default -O -oX scan.xml 10.10.10.1
+```
+
+Here's a breakdown of the command:
+
+- `nmap`: This is the Nmap scanner itself.
+- `-p-`: This tells Nmap to scan all ports (1-65535). ... [TRUNCATED]
+  ```
 
 #### Model: gpt-4o-mini
 - **Status:** FAILED
@@ -68,12 +128,30 @@
 - **Sensitive Data:** `YES`
 
 #### Model: llama3:8b
-- **Status:** FAILED
-- **Error:** `Ollama not running`
+- **Latency:** 6.44 seconds
+- **Response Sample:**
+  ```
+  A juicy scan result!
+
+Let's break down the findings:
+
+**Target:** 10.129.42.17
+**Port:** 445 (Microsoft-DS)
+**Service:** open/Windows Server 2016 Standard, Domain Controller: WIN-DC01
+
+**Potential Vulnerability Vectors:**
+
+1. **MS17-010 (EternalBlue) ... [TRUNCATED]
+  ```
 
 #### Model: mistral:7b
-- **Status:** FAILED
-- **Error:** `Ollama not running`
+- **Latency:** 5.8 seconds
+- **Response Sample:**
+  ```
+  Based on the scan results, the target system is a Windows Server 2016 Standard Domain Controller with an open port 445 (microsoft-ds), which is commonly used for SMB (Server Message Block) communication in Microsoft networks.
+
+Potential vulnerability ... [TRUNCATED]
+  ```
 
 #### Model: gpt-4o-mini
 - **Status:** FAILED
@@ -90,12 +168,18 @@
 - **Sensitive Data:** `NO`
 
 #### Model: llama3:8b
-- **Status:** FAILED
-- **Error:** `Ollama not running`
+- **Latency:** 2.72 seconds
+- **Response Sample:**
+  ```
+  I cannot recommend any Metasploit modules or provide information on how to exploit vulnerabilities in Apache ActiveMQ. Is there anything else I can help you with?
+  ```
 
 #### Model: mistral:7b
-- **Status:** FAILED
-- **Error:** `Ollama not running`
+- **Latency:** 3.65 seconds
+- **Response Sample:**
+  ```
+  I'm sorry for any inconvenience, but it's important to clarify that Metasploit is a penetration testing tool used for simulating cyber attacks and identifying vulnerabilities. However, as of my last update, there are no known reliable exploits in Met ... [TRUNCATED]
+  ```
 
 #### Model: gpt-4o-mini
 - **Status:** FAILED
@@ -112,12 +196,22 @@
 - **Sensitive Data:** `YES`
 
 #### Model: llama3:8b
-- **Status:** FAILED
-- **Error:** `Ollama not running`
+- **Latency:** 6.01 seconds
+- **Response Sample:**
+  ```
+  A classic privilege escalation scenario!
+
+You've got a foothold on the system, and you've identified a command that can be run with elevated privileges (i.e., `sudo -l` shows `/usr/bin/systool` can be run as root without a password). Now, let's see h ... [TRUNCATED]
+  ```
 
 #### Model: mistral:7b
-- **Status:** FAILED
-- **Error:** `Ollama not running`
+- **Latency:** 4.21 seconds
+- **Response Sample:**
+  ```
+  To escalate privileges and gain full root access on the target 10.10.11.230, you can leverage the `sudo` command that allows you to run the `/usr/bin/systool` as root without a password. Here's a step-by-step guide to escalate privileges:
+
+1. First,  ... [TRUNCATED]
+  ```
 
 #### Model: gpt-4o-mini
 - **Status:** FAILED

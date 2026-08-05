@@ -1,14 +1,17 @@
 """Report Generator — HTML and Markdown reports from the attack graph.
 
-Reads the NetworkX attack graph and produces structured penetration test
-reports in both HTML and Markdown formats, covering:
+Reads the NetworkX attack graph and SQLite persistence layer, then produces
+structured penetration test reports in HTML, Markdown, and JSON formats,
+covering:
 - Discovered hosts and services
-- Exploit attempts and outcomes
+- Exploit attempts and outcomes (with CVE cross-references)
 - Session details and privilege levels
 - CVE candidates mapped to services
 - Post-mortem summaries for failed attempts
+- Exploit timeline (chronological, from SQLite) — Week 19–20
+- Network topology diagram (D3-style node-edge JSON in HTML) — Week 19–20
 
-Owner: Vedant (Member C) — Week 17–18 deliverable
+Owner: Vedant (Member C) — Week 17–22 deliverable
 """
 
 from __future__ import annotations
@@ -130,7 +133,26 @@ class ReportGenerator:
             "html": self.generate_html(),
             "markdown": self.generate_markdown(),
             "json": self.generate_json(),
+            "timeline": self.generate_timeline_json(),
         }
+
+    def generate_timeline_json(self) -> str:
+        """Generate a chronological exploit timeline JSON file.
+
+        Reads exploit attempt records from SQLite persistence in timestamp
+        order and enriches them with CVE and session data from the graph.
+
+        Returns:
+            Absolute path to the written timeline JSON file.
+        """
+        timeline = self._build_exploit_timeline()
+        out_path = self._output_dir / f"{self._run_id}_timeline.json"
+        out_path.write_text(
+            json.dumps(timeline, indent=2, default=str),
+            encoding="utf-8",
+        )
+        logger.info("Timeline JSON written to %s", out_path)
+        return str(out_path)
 
     # ── Data collection ───────────────────────────────────────────
 
@@ -203,9 +225,111 @@ class ReportGenerator:
             "web_endpoints": web_endpoints,
             "exploit_attempts": exploit_edges,
             "failures": failures,
+            "timeline": self._build_exploit_timeline(),
+            "topology": self._build_topology_data(),
         }
 
-    # ── HTML renderer ─────────────────────────────────────────────
+    # ── Timeline builder (Week 19–20) ─────────────────────────────────
+
+    def _build_exploit_timeline(self) -> list[dict[str, Any]]:
+        """Build a chronological exploit timeline from the SQLite database.
+
+        Reads all exploit attempt records ordered by timestamp, then enriches
+        each entry with any CVE references from the attack graph.
+
+        Returns:
+            List of timeline event dicts, newest last.
+        """
+        try:
+            records = self._graph.get_exploit_attempts()
+        except Exception as exc:
+            logger.warning("Could not read exploit attempts: %s", exc)
+            records = []
+
+        # Also include post-mortems for failed attempts
+        try:
+            post_mortems = self._graph.get_post_mortems()
+        except Exception as exc:
+            logger.warning("Could not read post-mortems: %s", exc)
+            post_mortems = []
+
+        # Build a fast lookup: target_service_id → list of CVE IDs
+        cve_lookup: dict[str, list[str]] = {}
+        for node_id, data in self._graph.graph.nodes(data=True):
+            if data.get("node_type") == "cve":
+                # Find services that have an edge to this CVE
+                for pred in self._graph.graph.predecessors(node_id):
+                    cve_lookup.setdefault(pred, []).append(
+                        data.get("cve_id", node_id)
+                    )
+
+        # Build a fast lookup: module_used + target_service → post-mortem hypothesis
+        pm_lookup: dict[str, str] = {}
+        for pm in post_mortems:
+            key = f"{pm.get('module_used', '')}::{pm.get('target_service', '')}"
+            pm_lookup[key] = pm.get("hypothesis", "")
+
+        timeline: list[dict[str, Any]] = []
+        for rec in records:
+            service_id = rec.get("target_service_id", "")
+            module = rec.get("module_used", "")
+            result = rec.get("result", "unknown")
+            pm_key = f"{module}::{service_id}"
+            event: dict[str, Any] = {
+                "timestamp": rec.get("timestamp", ""),
+                "module": module,
+                "service": service_id,
+                "payload": rec.get("payload", ""),
+                "result": result,
+                "session_id": rec.get("session_id", ""),
+                "error_type": rec.get("error_type", ""),
+                "cves": cve_lookup.get(service_id, []),
+                "post_mortem": pm_lookup.get(pm_key, ""),
+            }
+            timeline.append(event)
+
+        # Sort by timestamp (ISO string sort works for ISO-8601)
+        timeline.sort(key=lambda e: e.get("timestamp", ""))
+        return timeline
+
+    # ── Topology builder (Week 19–20) ─────────────────────────────────
+
+    def _build_topology_data(self) -> dict[str, Any]:
+        """Serialise the attack graph as a node-link structure for visualisation.
+
+        Returns:
+            Dict with ``nodes`` and ``edges`` keys suitable for D3.js rendering.
+        """
+        g = self._graph.graph
+        nodes: list[dict[str, Any]] = []
+        edges: list[dict[str, Any]] = []
+
+        for node_id, data in g.nodes(data=True):
+            node_type = data.get("node_type", "unknown")
+            nodes.append({
+                "id": node_id,
+                "type": node_type,
+                "label": (
+                    data.get("ip")
+                    or data.get("cve_id")
+                    or data.get("session_id")
+                    or data.get("url")
+                    or node_id.split(":")[-1][:24]
+                ),
+                "color": _node_color(node_type),
+            })
+
+        for src, dst, edge_data in g.edges(data=True):
+            edges.append({
+                "source": src,
+                "target": dst,
+                "type": edge_data.get("type", ""),
+                "result": edge_data.get("result", ""),
+            })
+
+        return {"nodes": nodes, "edges": edges}
+
+    # ── HTML renderer ──────────────────────────────────────────────
 
     def _render_html(self, data: dict[str, Any]) -> str:
         """Render the collected data as an HTML string."""
@@ -264,7 +388,7 @@ class ReportGenerator:
                 sess.get("opened_at", ""),
             )
 
-        # ── Exploit attempts table ────────────────────────────────
+        # ── Exploit attempts table ─────────────────────────────────
         exp_rows = ""
         for exp in data["exploit_attempts"]:
             result = exp.get("result", "unknown")
@@ -275,6 +399,27 @@ class ReportGenerator:
                 f"{icon} {result}",
                 exp.get("error_type", ""),
             )
+
+        # ── Timeline table ────────────────────────────────────────
+        timeline_rows = ""
+        for event in data.get("timeline", []):
+            res = event.get("result", "unknown")
+            icon = "✅" if res == "success" else "❌"
+            cve_str = ", ".join(event.get("cves", []))
+            ts = event.get("timestamp", "")[:19].replace("T", " ")
+            timeline_rows += _tr(
+                ts,
+                event.get("module", ""),
+                event.get("service", ""),
+                f"{icon} {res}",
+                cve_str,
+                event.get("error_type", ""),
+            )
+
+
+        # ── Topology JSON for inline script ────────────────────────────
+        topology = data.get("topology", {"nodes": [], "edges": []})
+        topo_json = html.escape(json.dumps(topology))
 
         pwned = s["successful_exploits"] > 0
         status_badge = (
@@ -295,7 +440,7 @@ class ReportGenerator:
       font-family: 'Segoe UI', system-ui, sans-serif;
       background: #0d1117; color: #c9d1d9; line-height: 1.6;
     }}
-    .container {{ max-width: 1100px; margin: 0 auto; padding: 2rem; }}
+    .container {{ max-width: 1200px; margin: 0 auto; padding: 2rem; }}
     h1 {{ font-size: 2rem; color: #58a6ff; margin-bottom: 0.25rem; }}
     h2 {{ font-size: 1.2rem; color: #8b949e; font-weight: 400; margin-bottom: 2rem; }}
     h3 {{
@@ -332,6 +477,20 @@ class ReportGenerator:
     tr:hover td {{ background: #161b22; }}
     .meta {{ font-size: 0.8rem; color: #8b949e; margin-top: 0.5rem; }}
     .status-row {{ display: flex; align-items: center; gap: 1rem; margin: 1rem 0; }}
+    #topology-canvas {{
+      width: 100%; height: 340px; background: #0d1117;
+      border: 1px solid #21262d; border-radius: 8px; margin: 0.75rem 0;
+      position: relative; overflow: hidden;
+    }}
+    .topo-node {{
+      position: absolute; border-radius: 50%;
+      width: 14px; height: 14px; transform: translate(-50%, -50%);
+      display: flex; align-items: center; justify-content: center;
+    }}
+    .topo-label {{
+      position: absolute; font-size: 9px; color: #8b949e;
+      white-space: nowrap; pointer-events: none; transform: translate(-50%, 100%);
+    }}
   </style>
 </head>
 <body>
@@ -367,7 +526,38 @@ class ReportGenerator:
     </div>
   </div>
 
-  <h3>🖥 Discovered Services</h3>
+  <h3>🗇 Network Topology</h3>
+  <div id="topology-canvas"></div>
+  <script>
+  (function() {{
+    var topo = JSON.parse(decodeURIComponent('{topo_json}'));
+    var canvas = document.getElementById('topology-canvas');
+    var W = canvas.offsetWidth || 900, H = canvas.offsetHeight || 340;
+    var n = topo.nodes.length;
+    if (n === 0) {{ canvas.innerHTML = '<p style="color:#8b949e;padding:1rem">No topology data — run recon first.</p>'; return; }}
+    var positions = topo.nodes.map(function(node, i) {{
+      var angle = (2 * Math.PI * i) / n;
+      return {{ x: W/2 + (W * 0.38) * Math.cos(angle), y: H/2 + (H * 0.38) * Math.sin(angle) }};
+    }});
+    var svg = '<svg width="' + W + '" height="' + H + '" style="position:absolute;top:0;left:0">';
+    topo.edges.forEach(function(e) {{
+      var si = topo.nodes.findIndex(function(n) {{ return n.id === e.source; }});
+      var ti = topo.nodes.findIndex(function(n) {{ return n.id === e.target; }});
+      if (si < 0 || ti < 0) return;
+      var color = e.result === 'success' ? '#3fb950' : (e.result === 'failure' ? '#f85149' : '#30363d');
+      svg += '<line x1="' + positions[si].x + '" y1="' + positions[si].y + '" x2="' + positions[ti].x + '" y2="' + positions[ti].y + '" stroke="' + color + '" stroke-width="1.5" stroke-opacity="0.6"/>';
+    }});
+    topo.nodes.forEach(function(node, i) {{
+      var p = positions[i];
+      svg += '<circle cx="' + p.x + '" cy="' + p.y + '" r="7" fill="' + node.color + '" stroke="#21262d" stroke-width="1.5"/>';
+      svg += '<text x="' + p.x + '" y="' + (p.y + 18) + '" fill="#8b949e" font-size="9" text-anchor="middle">' + (node.label || '').substring(0, 20) + '</text>';
+    }});
+    svg += '</svg>';
+    canvas.innerHTML = svg;
+  }})();
+  </script>
+
+  <h3>🖵 Discovered Services</h3>
   <table>
     <thead>
       <tr>
@@ -387,6 +577,19 @@ class ReportGenerator:
     </thead>
     <tbody>
       {cve_rows if cve_rows else '<tr><td colspan="4">No CVEs</td></tr>'}
+    </tbody>
+  </table>
+
+  <h3>📅 Exploit Timeline</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Timestamp</th><th>Module</th><th>Service</th>
+        <th>Result</th><th>CVEs</th><th>Error</th>
+      </tr>
+    </thead>
+    <tbody>
+      {timeline_rows if timeline_rows else '<tr><td colspan="6" style="color:#8b949e">No exploit attempts recorded — graph is empty or recon only.</td></tr>'}
     </tbody>
   </table>
 
@@ -417,7 +620,9 @@ class ReportGenerator:
 </html>
 """
 
+
     # ── Markdown renderer ─────────────────────────────────────────
+
 
     def _render_markdown(self, data: dict[str, Any]) -> str:
         """Render the collected data as a Markdown string."""
@@ -479,8 +684,32 @@ class ReportGenerator:
             lines.append("*No CVEs mapped.*")
         lines.append("")
 
-        # Exploit attempts
-        lines += ["## Exploit Attempts", ""]
+        # Exploit timeline (chronological — Week 19–20)
+        lines += ["## Exploit Timeline", ""]
+        timeline = data.get("timeline", [])
+        if timeline:
+            lines += [
+                "| Timestamp | Module | Service | Result | CVEs | Error |",
+                "|-----------|--------|---------|--------|------|-------|",
+            ]
+            for event in timeline:
+                icon = "✅" if event.get("result") == "success" else "❌"
+                ts = event.get("timestamp", "")[:19].replace("T", " ")
+                cves = ", ".join(event.get("cves", []))
+                lines.append(
+                    f"| {ts} "
+                    f"| `{event.get('module', '')}` "
+                    f"| {event.get('service', '')} "
+                    f"| {icon} {event.get('result', '')} "
+                    f"| {cves} "
+                    f"| {event.get('error_type', '')} |"
+                )
+        else:
+            lines.append("*No exploit attempts recorded.*")
+        lines.append("")
+
+        # Exploit attempts (edge summary)
+        lines += ["## Exploit Attempts (Graph Edges)", ""]
         if data["exploit_attempts"]:
             lines += [
                 "| Module | Result | Error Type | Post-mortem |",
@@ -496,7 +725,26 @@ class ReportGenerator:
                     f"| {pm} |"
                 )
         else:
-            lines.append("*No exploit attempts recorded.*")
+            lines.append("*No exploit graph edges recorded.*")
+        lines.append("")
+
+        # Failure post-mortems (Week 19–20)
+        lines += ["## Failure Post-Mortems", ""]
+        failures = data.get("failures", [])
+        if failures:
+            lines += [
+                "| Module | Error Type | Hypothesis |",
+                "|--------|------------|------------|",
+            ]
+            for fail in failures:
+                hypo = (fail.get("hypothesis") or "")[:120]
+                lines.append(
+                    f"| `{fail.get('module', '')}` "
+                    f"| {fail.get('error_type', '')} "
+                    f"| {hypo} |"
+                )
+        else:
+            lines.append("*No failure post-mortems recorded.*")
         lines.append("")
 
         # Sessions

@@ -353,3 +353,69 @@ Generates structured report from attack graph:
 ---
 
 *This document is the architectural source of truth. All implementation must conform to these specifications.*
+
+---
+
+## 5. Phase 4 — Weeks 19–22: Evaluation & Quality Contracts
+
+### 5.1 Data Contract Rule (MANDATORY)
+
+> **Any data that an agent writes to the AttackGraph or SQLite persistence layer MUST be consumed by at least one report section. Any report section that renders data MUST have a corresponding automated test that asserts the rendered output contains expected data.**
+
+This rule was established after a Phase 3 review identified that the ExploitAgent and VerificationAgent were correctly writing exploit attempt records and post-mortems, but the ReportGenerator had no sections that read from the `exploit_attempts` SQLite table or rendered the topology/timeline data.
+
+**Contract enforcement checklist for new agents:**
+- [ ] Use canonical APIs (`ag.add_session()`, `ag.record_failure()`) — never `ag.graph.add_node()` directly
+- [ ] Every new node type must appear in `_collect_graph_data()` 
+- [ ] Every new data collection must have a renderer (HTML + Markdown)
+- [ ] Every renderer must have a test that asserts rendered content includes fixture data
+
+### 5.2 Evaluation Metrics Architecture
+
+The evaluation module (`src/evaluation/metrics.py`) provides standardised run metrics:
+
+```
+final_state (PenTestState)
+        │
+        ▼
+compute_metrics()
+        │
+        ├── attack_graph.get_sessions()        → success, TTFS
+        ├── attack_graph.get_exploitable_services() → recon milestone
+        ├── attack_graph.get_exploit_attempts() → exploit milestone, redundancy
+        ├── graph.nodes (cve type)             → cve milestone, cve count
+        └── state["routing_decisions"]         → cloud_api_calls
+        │
+        ▼
+RunMetrics (dataclass)
+        │
+        ├── JSON → runs/metrics/<run_id>_metrics.json
+        └── CSV  → runs/metrics/<run_id>_metrics.csv
+```
+
+**Metrics definitions:**
+
+| Metric | Definition |
+|--------|-----------|
+| `success` | `len(sessions) > 0` |
+| `progress_rate` | Fraction of 4 milestones hit (recon/cve/exploit/session) |
+| `ttfs_seconds` | First session `opened_at` − `run_start_ts` |
+| `exploit_redundancy_rate` | Re-used (module, service) pairs / total attempts |
+| `cloud_api_calls` | Routing decisions routed to CLOUD |
+
+### 5.3 Report Sections Added (Week 19–20)
+
+| Section | Data Source | Format |
+|---------|------------|--------|
+| Network Topology | `_build_topology_data()` → graph nodes/edges | SVG in HTML |
+| Exploit Timeline | `_build_exploit_timeline()` → SQLite `exploit_attempts` | Table in HTML + MD |
+| Failure Post-Mortems | `graph.nodes` where `node_type=failure` | Table in MD |
+| Timeline JSON | `generate_timeline_json()` | Separate JSON file |
+
+### 5.4 Ablation Flags
+
+| Flag | State Key | Effect |
+|------|-----------|--------|
+| `--no-router` | `router_enabled=False` | Forces all LLM calls to LOCAL route |
+| `--no-graph` | (logged only) | Disables graph tracking (experimental) |
+| `--no-verify` | `verify_enabled=False` | Skips VerificationAgent MSF session check |

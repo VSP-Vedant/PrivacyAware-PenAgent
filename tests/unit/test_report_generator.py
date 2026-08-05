@@ -1,4 +1,4 @@
-"""Unit tests for the ReportGenerator (Week 17–18).
+"""Unit tests for the ReportGenerator (Week 17–22).
 
 Owner: Vedant (Member C)
 """
@@ -244,13 +244,14 @@ class TestJSONReport:
 
 
 class TestGenerateAll:
-    def test_generate_all_returns_three_paths(
+    def test_generate_all_returns_paths(
         self, populated_graph: AttackGraph, report_dir: str
     ) -> None:
+        """generate_all should return html, markdown, json, and timeline paths."""
         rg = ReportGenerator(
             attack_graph=populated_graph, output_dir=report_dir, run_id="all_test"
         )
         paths = rg.generate_all()
-        assert set(paths.keys()) == {"html", "markdown", "json"}
+        assert set(paths.keys()) == {"html", "markdown", "json", "timeline"}
         for path in paths.values():
             assert Path(path).exists()

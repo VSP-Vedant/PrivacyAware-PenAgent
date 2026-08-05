@@ -23,6 +23,8 @@ from src.state.schemas import ExploitAttempt, PenTestState, ServiceNode
 @pytest.fixture
 def empty_state() -> PenTestState:
     """Fixture providing an empty PenTestState for testing."""
+    import time
+
     return {
         "target": "10.10.10.10",
         "attack_graph": AttackGraph(":memory:"),
@@ -36,6 +38,8 @@ def empty_state() -> PenTestState:
         "routing_decisions": [],
         "exploit_candidates": [],
         "router_enabled": True,
+        "verify_enabled": True,   # Week 19-22: ablation flag
+        "run_start_ts": time.time(),  # Week 19-22: for TTFS metric
     }
 
 
@@ -266,6 +270,12 @@ def test_report_node(
     assert result["current_phase"] == "report"
     assert result["step_count"] == 1
 
-    assert len(result["findings"]) == 2
+    # Week 17-18: reports and cost_summary
+    # Week 19-22: evaluation_metrics added as third finding
+    assert len(result["findings"]) >= 2
     assert "reports" in result["findings"][0]
     assert "cost_summary" in result["findings"][1]
+    # Verify evaluation_metrics finding exists (Week 19-22)
+    metric_findings = [f for f in result["findings"] if "evaluation_metrics" in f]
+    assert len(metric_findings) >= 1
+    assert "success" in metric_findings[0]["evaluation_metrics"]

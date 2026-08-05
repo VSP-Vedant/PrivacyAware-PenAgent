@@ -24,6 +24,8 @@ from src.state.schemas import CVENode, HostNode, PenTestState, ServiceNode
 
 def _make_state(**overrides: Any) -> PenTestState:
     """Create a PenTestState with sensible defaults."""
+    import time
+
     state: PenTestState = {
         "target": "10.10.10.10",
         "attack_graph": AttackGraph(),
@@ -37,6 +39,8 @@ def _make_state(**overrides: Any) -> PenTestState:
         "routing_decisions": [],
         "exploit_candidates": [],
         "router_enabled": True,
+        "verify_enabled": True,   # Week 19-22
+        "run_start_ts": time.time(),  # Week 19-22
     }
     state.update(overrides)  # type: ignore[typeddict-item]
     return state

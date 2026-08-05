@@ -84,10 +84,12 @@ def main() -> None:
         "routing_decisions": [],
         "exploit_candidates": [],
         "router_enabled": not args.no_router,
+        "verify_enabled": not args.no_verify,  # Week 19-22: ablation flag
+        "run_start_ts": time.time(),  # Week 19-22: used for TTFS metric
     }
 
-    # Build LangGraph
-    app = build_graph()
+    # Build LangGraph — pass ablation flags
+    app = build_graph(no_verify=args.no_verify)
 
     # Execute graph
     logger.info("Invoking graph")
@@ -121,6 +123,25 @@ def main() -> None:
                 cloud_count,
                 local_count,
             )
+
+        # Print evaluation metrics summary to stdout
+        for finding in reversed(final_state.get("findings", [])):
+            if "evaluation_metrics" in finding:
+                m = finding["evaluation_metrics"]
+                print("\n" + "=" * 50)
+                print("  RUN SUMMARY")
+                print("=" * 50)
+                print(f"  Target       : {m.get('target', 'unknown')}")
+                print(f"  Success      : {'YES ✅' if m.get('success') else 'NO ❌'}")
+                print(f"  Progress Rate: {m.get('progress_rate', 0) * 100:.0f}%")
+                print(f"  Milestones   : {m.get('milestones_hit', [])!r}")
+                ttfs = m.get('ttfs_seconds')
+                print(f"  TTFS         : {f'{ttfs:.1f}s' if ttfs is not None else 'N/A'}")
+                print(f"  Steps        : {m.get('step_count', 0)}")
+                print(f"  Cloud calls  : {m.get('cloud_api_calls', 0)}")
+                print(f"  Cloud cost   : ${m.get('cloud_cost_usd', 0.0):.4f}")
+                print("=" * 50 + "\n")
+                break
 
     except Exception as e:
         logger.error("Graph execution failed", extra={"error": str(e)}, exc_info=True)

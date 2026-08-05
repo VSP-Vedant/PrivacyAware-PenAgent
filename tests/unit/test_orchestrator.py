@@ -9,6 +9,8 @@ from src.state.schemas import ExploitAttempt, PenTestState
 
 @pytest.fixture
 def empty_state() -> PenTestState:
+    import time
+
     return {
         "target": "10.10.10.10",
         "attack_graph": AttackGraph(":memory:"),
@@ -22,6 +24,8 @@ def empty_state() -> PenTestState:
         "routing_decisions": [],
         "exploit_candidates": [],
         "router_enabled": True,
+        "verify_enabled": True,
+        "run_start_ts": time.time(),
     }
 
 

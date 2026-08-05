@@ -12,6 +12,11 @@ Week 9–12 integration:
 - analyze_graph_node wires LLMRouter + LLMClient for exploit suggestions
 - exploit_node passes LLM-generated candidates to ExploitAgent
 - CostTracker updates cloud_tokens_used in state
+
+Week 19–22 enhancements (Vedant, Member C):
+- verify_node respects state['verify_enabled'] ablation flag (--no-verify)
+- report_node computes and saves RunMetrics (SR, PR, TTFS, cost, redundancy)
+- build_graph rewires exploit→check_success when verify is disabled
 """
 
 from __future__ import annotations
@@ -26,6 +31,7 @@ from src.agents.exploit_agent import ExploitAgent, ExploitCandidate
 from src.agents.recon_agent import ReconAgent
 from src.agents.verification_agent import VerificationAgent
 from src.config.prompts import get_prompt
+from src.evaluation.metrics import RunMetrics, compute_metrics, save_run_metrics
 from src.reporting.report_generator import ReportGenerator
 from src.router.complexity import TaskType
 from src.router.cost_tracker import CostTracker
@@ -251,11 +257,21 @@ def exploit_node(state: PenTestState) -> PenTestState:
 
 
 def verify_node(state: PenTestState) -> PenTestState:
-    """Verify the last exploit attempt via MSF session confirmation."""
+    """Verify the last exploit attempt via MSF session confirmation.
+
+    If ``state['verify_enabled']`` is False (--no-verify ablation mode)
+    the verification step is skipped and the exploit result is trusted as-is.
+    """
     logger.info("Executing verify node")
     state["current_phase"] = "verify"
 
     if not state["exploit_attempts"]:
+        return state
+
+    # ── Week 19-22: ablation flag ──────────────────────────────────
+    if not state.get("verify_enabled", True):
+        logger.info("Verification disabled (ablation mode) — trusting exploit result")
+        state["step_count"] += 1
         return state
 
     last_attempt = state["exploit_attempts"][-1]
@@ -315,7 +331,13 @@ def replan_node(state: PenTestState) -> PenTestState:
 
 
 def report_node(state: PenTestState) -> PenTestState:
-    """Generate HTML and Markdown reports from the attack graph."""
+    """Generate HTML and Markdown reports from the attack graph.
+
+    Week 19–22 additions:
+    - Calls ``compute_metrics()`` to compute SR, PR, TTFS, and redundancy.
+    - Persists metrics via ``save_run_metrics()`` to ``runs/metrics/``.
+    - Stores metric summary in ``state['findings']`` for external access.
+    """
     logger.info("Executing report node")
     state["current_phase"] = "report"
 
@@ -338,7 +360,7 @@ def report_node(state: PenTestState) -> PenTestState:
     except Exception as e:
         logger.error("Report generation failed: %s", e)
 
-    # Log cost summary
+    # ── Cost summary ──────────────────────────────────────────────
     stats = _cost_tracker.get_stats()
     logger.info(
         "Cost summary: cloud_tokens=%d total_usd=%.4f",
@@ -346,6 +368,29 @@ def report_node(state: PenTestState) -> PenTestState:
         stats.get("total_cost_usd", 0.0),
     )
     state["findings"].append({"cost_summary": stats})
+
+    # ── Week 19-22: Evaluation metrics ────────────────────────────
+    try:
+        metrics: RunMetrics = compute_metrics(
+            final_state=state,
+            run_id=run_id,
+            cost_stats=stats,
+        )
+        metric_paths = save_run_metrics(metrics, output_dir="runs/metrics")
+        logger.info(
+            "Run metrics: success=%s PR=%.2f TTFS=%s steps=%d cost=$%.4f",
+            metrics.success,
+            metrics.progress_rate,
+            f"{metrics.ttfs_seconds:.1f}s" if metrics.ttfs_seconds is not None else "N/A",
+            metrics.step_count,
+            metrics.cloud_cost_usd,
+        )
+        state["findings"].append({
+            "evaluation_metrics": metrics.to_dict(),
+            "metrics_files": metric_paths,
+        })
+    except Exception as exc:
+        logger.error("Metrics computation failed: %s", exc)
 
     state["step_count"] += 1
     return state
@@ -396,14 +441,23 @@ def check_success(state: PenTestState) -> Literal["report", "replan"]:
     return "replan"
 
 
-def build_graph() -> CompiledStateGraph[Any, Any, Any]:
+def build_graph(
+    no_verify: bool = False,
+) -> CompiledStateGraph[Any, Any, Any]:
     """Build and compile the LangGraph state machine.
+
+    Args:
+        no_verify: When True (``--no-verify`` ablation mode), the verify
+            node is included in the graph but is short-circuited via the
+            ``verify_enabled`` state flag rather than by removing the node.
+            This keeps the graph topology consistent across all ablation
+            conditions while still skipping MSF session confirmation.
 
     Graph topology::
 
         recon → analyze_graph → [exploit | report]
                                     ↓
-                                 verify
+                                 verify  (skipped when no_verify=True)
                                     ↓
                             [report | replan]
                                     ↓

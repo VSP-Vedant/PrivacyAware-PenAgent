@@ -15,7 +15,6 @@ from __future__ import annotations
 import json
 import time
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -149,7 +148,6 @@ class TestComputeMetrics:
         # exploit_attempted milestone requires SQLite exploit_attempt records;
         # in this test we only added a session node, so 3/4 milestones hit.
         assert m.progress_rate >= 0.75
-
 
     def test_ttfs_computed_from_session_timestamp(
         self, populated_graph: AttackGraph

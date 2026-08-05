@@ -135,8 +135,10 @@ def main() -> None:
                 print(f"  Success      : {'YES ✅' if m.get('success') else 'NO ❌'}")
                 print(f"  Progress Rate: {m.get('progress_rate', 0) * 100:.0f}%")
                 print(f"  Milestones   : {m.get('milestones_hit', [])!r}")
-                ttfs = m.get('ttfs_seconds')
-                print(f"  TTFS         : {f'{ttfs:.1f}s' if ttfs is not None else 'N/A'}")
+                ttfs = m.get("ttfs_seconds")
+                print(
+                    f"  TTFS         : {f'{ttfs:.1f}s' if ttfs is not None else 'N/A'}"
+                )
                 print(f"  Steps        : {m.get('step_count', 0)}")
                 print(f"  Cloud calls  : {m.get('cloud_api_calls', 0)}")
                 print(f"  Cloud cost   : ${m.get('cloud_cost_usd', 0.0):.4f}")

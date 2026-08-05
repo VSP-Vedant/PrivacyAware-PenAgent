@@ -130,7 +130,9 @@ def compute_metrics(
     """
     ag = final_state.get("attack_graph")
     if ag is None:
-        logger.warning("compute_metrics: no attack_graph in state — returning empty metrics")
+        logger.warning(
+            "compute_metrics: no attack_graph in state — returning empty metrics"
+        )
         return RunMetrics(run_id=run_id, target=final_state.get("target", "unknown"))
 
     target = final_state.get("target", "unknown")
@@ -145,9 +147,7 @@ def compute_metrics(
 
     # CVE count — iterate graph nodes directly
     cves = [
-        data
-        for _, data in ag.graph.nodes(data=True)
-        if data.get("node_type") == "cve"
+        data for _, data in ag.graph.nodes(data=True) if data.get("node_type") == "cve"
     ]
 
     # ── Exploit attempt history from SQLite ───────────────────────
@@ -184,7 +184,7 @@ def compute_metrics(
             opened_at = sess.get("opened_at")
             if opened_at:
                 try:
-                    from datetime import datetime, timezone
+                    from datetime import datetime
 
                     dt = datetime.fromisoformat(opened_at)
                     session_times.append(dt.timestamp())
@@ -195,9 +195,7 @@ def compute_metrics(
 
     # ── Cloud API stats ───────────────────────────────────────────
     routing_decisions = final_state.get("routing_decisions", [])
-    cloud_api_calls = sum(
-        1 for d in routing_decisions if d.get("route") == "CLOUD"
-    )
+    cloud_api_calls = sum(1 for d in routing_decisions if d.get("route") == "CLOUD")
     cloud_cost = 0.0
     if cost_stats:
         cloud_cost = float(cost_stats.get("total_cost_usd", 0.0))
@@ -272,7 +270,9 @@ def _compute_redundancy(exploit_records: list[dict[str, Any]]) -> float:
 # ---------------------------------------------------------------------------
 
 
-def save_run_metrics(metrics: RunMetrics, output_dir: str = "runs/metrics") -> dict[str, str]:
+def save_run_metrics(
+    metrics: RunMetrics, output_dir: str = "runs/metrics"
+) -> dict[str, str]:
     """Write run metrics to JSON and CSV files.
 
     Args:

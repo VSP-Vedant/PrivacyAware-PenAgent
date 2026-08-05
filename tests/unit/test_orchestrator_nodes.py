@@ -38,7 +38,7 @@ def empty_state() -> PenTestState:
         "routing_decisions": [],
         "exploit_candidates": [],
         "router_enabled": True,
-        "verify_enabled": True,   # Week 19-22: ablation flag
+        "verify_enabled": True,  # Week 19-22: ablation flag
         "run_start_ts": time.time(),  # Week 19-22: for TTFS metric
     }
 

@@ -259,9 +259,7 @@ class ReportGenerator:
             if data.get("node_type") == "cve":
                 # Find services that have an edge to this CVE
                 for pred in self._graph.graph.predecessors(node_id):
-                    cve_lookup.setdefault(pred, []).append(
-                        data.get("cve_id", node_id)
-                    )
+                    cve_lookup.setdefault(pred, []).append(data.get("cve_id", node_id))
 
         # Build a fast lookup: module_used + target_service → post-mortem hypothesis
         pm_lookup: dict[str, str] = {}
@@ -306,26 +304,30 @@ class ReportGenerator:
 
         for node_id, data in g.nodes(data=True):
             node_type = data.get("node_type", "unknown")
-            nodes.append({
-                "id": node_id,
-                "type": node_type,
-                "label": (
-                    data.get("ip")
-                    or data.get("cve_id")
-                    or data.get("session_id")
-                    or data.get("url")
-                    or node_id.split(":")[-1][:24]
-                ),
-                "color": _node_color(node_type),
-            })
+            nodes.append(
+                {
+                    "id": node_id,
+                    "type": node_type,
+                    "label": (
+                        data.get("ip")
+                        or data.get("cve_id")
+                        or data.get("session_id")
+                        or data.get("url")
+                        or node_id.split(":")[-1][:24]
+                    ),
+                    "color": _node_color(node_type),
+                }
+            )
 
         for src, dst, edge_data in g.edges(data=True):
-            edges.append({
-                "source": src,
-                "target": dst,
-                "type": edge_data.get("type", ""),
-                "result": edge_data.get("result", ""),
-            })
+            edges.append(
+                {
+                    "source": src,
+                    "target": dst,
+                    "type": edge_data.get("type", ""),
+                    "result": edge_data.get("result", ""),
+                }
+            )
 
         return {"nodes": nodes, "edges": edges}
 
@@ -415,7 +417,6 @@ class ReportGenerator:
                 cve_str,
                 event.get("error_type", ""),
             )
-
 
         # ── Topology JSON for inline script ────────────────────────────
         topology = data.get("topology", {"nodes": [], "edges": []})
@@ -620,9 +621,7 @@ class ReportGenerator:
 </html>
 """
 
-
     # ── Markdown renderer ─────────────────────────────────────────
-
 
     def _render_markdown(self, data: dict[str, Any]) -> str:
         """Render the collected data as a Markdown string."""

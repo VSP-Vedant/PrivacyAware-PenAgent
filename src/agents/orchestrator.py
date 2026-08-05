@@ -60,9 +60,10 @@ def recon_node(state: PenTestState) -> PenTestState:
     """Run the Recon Agent against the target and populate the attack graph."""
     logger.info("Executing recon node")
     state["current_phase"] = "recon"
-    
+
     if "start_time" not in state:
         from datetime import datetime, timezone
+
         state["start_time"] = datetime.now(timezone.utc).isoformat()
 
     target = state["target"]
@@ -344,8 +345,9 @@ def report_node(state: PenTestState) -> PenTestState:
     """
     logger.info("Executing report node")
     state["current_phase"] = "report"
-    
+
     from datetime import datetime, timezone
+
     state["end_time"] = datetime.now(timezone.utc).isoformat()
 
     ag: AttackGraph = state["attack_graph"]
@@ -388,14 +390,20 @@ def report_node(state: PenTestState) -> PenTestState:
             "Run metrics: success=%s PR=%.2f TTFS=%s steps=%d cost=$%.4f",
             metrics.success,
             metrics.progress_rate,
-            f"{metrics.ttfs_seconds:.1f}s" if metrics.ttfs_seconds is not None else "N/A",
+            (
+                f"{metrics.ttfs_seconds:.1f}s"
+                if metrics.ttfs_seconds is not None
+                else "N/A"
+            ),
             metrics.step_count,
             metrics.cloud_cost_usd,
         )
-        state["findings"].append({
-            "evaluation_metrics": metrics.to_dict(),
-            "metrics_files": metric_paths,
-        })
+        state["findings"].append(
+            {
+                "evaluation_metrics": metrics.to_dict(),
+                "metrics_files": metric_paths,
+            }
+        )
     except Exception as exc:
         logger.error("Metrics computation failed: %s", exc)
 

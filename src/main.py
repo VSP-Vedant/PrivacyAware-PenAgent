@@ -86,6 +86,9 @@ def main() -> None:
         "router_enabled": not args.no_router,
         "verify_enabled": not args.no_verify,  # Week 19-22: ablation flag
         "run_start_ts": time.time(),  # Week 19-22: used for TTFS metric
+        "start_time": "",
+        "end_time": "",
+        "termination_reason": "",
     }
 
     # Build LangGraph — pass ablation flags

@@ -22,7 +22,7 @@ Week 19–22 enhancements (Vedant, Member C):
 from __future__ import annotations
 
 import json
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from langgraph.graph import END, StateGraph
 from langgraph.graph.state import CompiledStateGraph
@@ -381,7 +381,7 @@ def report_node(state: PenTestState) -> PenTestState:
     # ── Week 19-22: Evaluation metrics ────────────────────────────
     try:
         metrics: RunMetrics = compute_metrics(
-            final_state=state,
+            final_state=cast(dict[str, Any], state),
             run_id=run_id,
             cost_stats=stats,
         )

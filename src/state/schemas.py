@@ -340,5 +340,8 @@ class PenTestState(TypedDict):
     routing_decisions: list[dict[str, Any]]
     exploit_candidates: list[dict[str, Any]]
     router_enabled: bool
-    verify_enabled: bool  # Week 19-22: ablation flag — False disables VerificationAgent
+    verify_enabled: bool  # Week 19-22: ablation flag - False disables VerificationAgent
     run_start_ts: float  # Week 19-22: Unix epoch at run start, used for TTFS metric
+    start_time: str
+    end_time: str
+    termination_reason: str

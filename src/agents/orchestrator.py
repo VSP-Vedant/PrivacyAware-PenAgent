@@ -60,6 +60,10 @@ def recon_node(state: PenTestState) -> PenTestState:
     """Run the Recon Agent against the target and populate the attack graph."""
     logger.info("Executing recon node")
     state["current_phase"] = "recon"
+    
+    if "start_time" not in state:
+        from datetime import datetime, timezone
+        state["start_time"] = datetime.now(timezone.utc).isoformat()
 
     target = state["target"]
     ag: AttackGraph = state["attack_graph"]
@@ -340,6 +344,9 @@ def report_node(state: PenTestState) -> PenTestState:
     """
     logger.info("Executing report node")
     state["current_phase"] = "report"
+    
+    from datetime import datetime, timezone
+    state["end_time"] = datetime.now(timezone.utc).isoformat()
 
     ag: AttackGraph = state["attack_graph"]
     run_id = state["target"].replace(".", "_").replace("/", "_")
@@ -401,6 +408,7 @@ def has_exploitable(state: PenTestState) -> Literal["exploit", "report"]:
     ag: AttackGraph = state["attack_graph"]
     if ag.get_exploitable_services():
         return "exploit"
+    state["termination_reason"] = "no_exploitable_services"
     return "report"
 
 
@@ -415,6 +423,7 @@ def check_success(state: PenTestState) -> Literal["report", "replan"]:
     Routes to 'replan' when the attempt failed and budget remains.
     """
     if not state["exploit_attempts"]:
+        state["termination_reason"] = "no_attempts_made"
         return "report"
 
     last = state["exploit_attempts"][-1]
@@ -422,11 +431,13 @@ def check_success(state: PenTestState) -> Literal["report", "replan"]:
     # Success → generate report
     if last.result == "success":
         logger.info("Exploit succeeded — routing to report")
+        state["termination_reason"] = "success"
         return "report"
 
     # Step budget exhausted
     if state["step_count"] >= state.get("max_steps", 100):
         logger.warning("Step budget exhausted — routing to report")
+        state["termination_reason"] = "step_budget_exhausted"
         return "report"
 
     # Exploit attempt hard cap (prevents infinite retry loops)
@@ -435,6 +446,7 @@ def check_success(state: PenTestState) -> Literal["report", "replan"]:
             "Exploit attempt cap (%d) reached — routing to report",
             _MAX_EXPLOIT_ATTEMPTS,
         )
+        state["termination_reason"] = "exploit_attempt_cap_reached"
         return "report"
 
     # Still attempts remaining — try replanning

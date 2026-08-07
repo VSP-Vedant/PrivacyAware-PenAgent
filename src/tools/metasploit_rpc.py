@@ -189,17 +189,32 @@ class MetasploitRPCClient:
                 port=self._port,
                 ssl=self._ssl,
             )
-            logger.info(f"Connected to msfrpcd at " f"{self._host}:{self._port}")
+            logger.info(f"Connected to msfrpcd at {self._host}:{self._port} (ssl={self._ssl})")
             return True
-        except ImportError as exc:
-            raise MetasploitConnectionError("pymetasploit3 is not installed") from exc
-        except (ConnectionError, OSError) as exc:
+        except (ConnectionError, OSError, Exception) as exc:
+            # Attempt auto-fallback to opposite SSL mode if connection was reset/rejected
+            fallback_ssl = not self._ssl
+            try:
+                from pymetasploit3.msfrpc import MsfRpcClient
+                self._client = MsfRpcClient(
+                    self._password,
+                    server=self._host,
+                    port=self._port,
+                    ssl=fallback_ssl,
+                )
+                self._ssl = fallback_ssl
+                logger.info(f"Connected to msfrpcd via SSL fallback (ssl={fallback_ssl})")
+                return True
+            except Exception:
+                pass
+
             logger.error(
-                f"Failed to connect to msfrpcd at " f"{self._host}:{self._port}: {exc}"
+                f"Failed to connect to msfrpcd at {self._host}:{self._port}: {exc}"
             )
             raise MetasploitConnectionError(
-                f"Cannot reach msfrpcd at " f"{self._host}:{self._port}"
+                f"Cannot reach msfrpcd at {self._host}:{self._port}"
             ) from exc
+
 
     def disconnect(self) -> None:
         """Release the RPC connection and clean up resources."""

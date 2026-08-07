@@ -53,7 +53,8 @@ MSF_RPC_PORT: int = int(os.getenv("MSF_RPC_PORT", "55553"))
 MSF_RPC_PASSWORD: str = os.getenv("MSF_RPC_PASSWORD", "") or os.getenv(
     "MSF_RPC_PASS", ""
 )
-MSF_RPC_SSL: bool = os.getenv("MSF_RPC_SSL", "false").lower() == "true"
+MSF_RPC_SSL: bool = os.getenv("MSF_RPC_SSL", "true").lower() == "true"
+
 
 # ─── LLM Router Thresholds ────────────────────────────────────────────────────
 

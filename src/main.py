@@ -70,10 +70,13 @@ def main() -> None:
     if args.no_verify:
         logger.info("Verification ablation mode enabled. Skipping verify node.")
 
-    # Initialize state
+    # Initialize state — each run gets its OWN fresh database so data from
+    # previous runs never contaminates the current attack graph.
+    target_safe = args.target.replace(".", "_").replace("/", "_")
+    run_db_path = f"runs/{target_safe}_{run_ts}.db"
     initial_state: PenTestState = {
         "target": args.target,
-        "attack_graph": AttackGraph(),
+        "attack_graph": AttackGraph(db_path=run_db_path),
         "current_phase": "recon",
         "exploit_attempts": [],
         "sessions": [],

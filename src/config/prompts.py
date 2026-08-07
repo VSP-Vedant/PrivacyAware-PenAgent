@@ -45,42 +45,30 @@ OUTPUT FORMAT:
 # ----------------------------------------------------------------------
 # Exploit Agent Prompts
 # ----------------------------------------------------------------------
-EXPLOIT_SYSTEM_PROMPT = """You are a red team operator selecting Metasploit
-modules for authorized exploitation.
-You receive a service description and CVE candidates. You recommend exploit
-modules.
+EXPLOIT_SYSTEM_PROMPT = """You are a red team operator selecting Metasploit modules.
 
-CONSTRAINTS:
-- ONLY suggest modules that exist in Metasploit Framework (validated via search)
-- Output MUST include: module_path, required_options{}, recommended_payload,
-  confidence_score (0-1)
-- If no matching module exists, respond with:
-  {"fallback": "searchsploit", "query": "<service-version>"}
-- Never suggest modules for services not in the provided attack graph state
-- Maximum 3 module suggestions per service, ranked by confidence
+CRITICAL RULES — violating any rule means your output is INVALID:
+1. module_path MUST be a valid Metasploit path in the exact format: exploit/CATEGORY/NAME
+   - Valid example: exploit/linux/local/sudo_baron_samedit
+   - Valid example: exploit/multi/handler
+   - Valid example: exploit/unix/ftp/vsftpd_234_backdoor
+   - INVALID: exploits/CVE-2021-3156  (CVE IDs are NOT module paths)
+   - INVALID: exploits/ CVE-2021-3156  (spaces are NOT allowed)
+   - INVALID: any path not starting with 'exploit/'
+2. Only recommend modules you are CERTAIN exist in Metasploit Framework.
+3. If you are not certain of the exact Metasploit module path, output fallback instead.
+4. Output ONLY raw JSON — no markdown, no explanation text.
 
-INPUT: {service_info, cve_candidates, prior_failures[]}
-OUTPUT FORMAT:
-{
-  "fallback": null,
-  "recommendations": [
-    {
-      "module_path": "string",
-      "required_options": {
-        "RHOSTS": "string",
-        "RPORT": "string",
-        "additional_option": "value"
-      },
-      "recommended_payload": "string",
-      "confidence_score": float
-    }
-  ]
-}
-OR
-{
-  "fallback": "searchsploit",
-  "query": "string"
-}"""
+INPUT:
+Service info: {service_info}
+CVE candidates: {cve_candidates}
+
+OUTPUT FORMAT (choose one):
+Option A — you know exact module paths:
+{"fallback": null, "recommendations": [{"module_path": "exploit/category/module_name", "recommended_payload": "linux/x64/shell_reverse_tcp", "confidence_score": 0.8}]}
+
+Option B — you are unsure of exact paths (PREFERRED if uncertain):
+{"fallback": "searchsploit", "query": "service-name version-number"}"""
 
 # ----------------------------------------------------------------------
 # LLM Router Classification Prompts

@@ -209,23 +209,44 @@ def analyze_graph_node(state: PenTestState) -> PenTestState:
     candidates: list[dict[str, Any]] = []
     try:
         parsed = json.loads(llm_response)
-        recommendations = parsed.get("recommendations", [])
-        for rec in recommendations:
-            candidates.append(
-                {
-                    "module_path": rec.get("module_path", ""),
-                    "payload": rec.get("payload", rec.get("recommended_payload", "")),
-                    "confidence": rec.get(
-                        "confidence", rec.get("confidence_score", 0.5)
-                    ),
-                    "source": "llm",
-                }
+
+        # If LLM chose the fallback path, skip to SearchSploit (no candidates)
+        if parsed.get("fallback") == "searchsploit":
+            logger.info(
+                "LLM deferred to SearchSploit for: %s", parsed.get("query", "")
             )
+        else:
+            recommendations = parsed.get("recommendations", [])
+            for rec in recommendations:
+                module_path = rec.get("module_path", "").strip()
+
+                # ── Hallucination filter ───────────────────────────────────
+                # Reject any path that isn't a valid Metasploit module path.
+                # Valid paths start with 'exploit/' and contain no spaces.
+                if not module_path.startswith("exploit/") or " " in module_path:
+                    logger.warning(
+                        "Rejected hallucinated module path from LLM: %r — "
+                        "must start with 'exploit/' and contain no spaces.",
+                        module_path,
+                    )
+                    continue
+
+                candidates.append(
+                    {
+                        "module_path": module_path,
+                        "payload": rec.get("payload", rec.get("recommended_payload", "")),
+                        "confidence": rec.get(
+                            "confidence", rec.get("confidence_score", 0.5)
+                        ),
+                        "source": "llm",
+                    }
+                )
     except (json.JSONDecodeError, TypeError, AttributeError) as e:
         logger.warning("Failed to parse LLM response as JSON: %s", e)
 
     state["exploit_candidates"] = candidates
-    logger.info("LLM generated %d exploit candidates", len(candidates))
+    logger.info("LLM generated %d valid exploit candidates", len(candidates))
+
 
     state["step_count"] += 1
     return state

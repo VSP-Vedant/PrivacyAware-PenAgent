@@ -260,11 +260,11 @@ class GobusterWrapper:
             "-t",
             str(self._threads),
             "-q",
-            "--wildcard",  # auto-handle 302 wildcard redirects on virtual hosts
         ]
         if extensions:
             cmd.extend(["-x", extensions])
         return cmd
+
 
     @staticmethod
     def _validate_target(target_url: str) -> None:

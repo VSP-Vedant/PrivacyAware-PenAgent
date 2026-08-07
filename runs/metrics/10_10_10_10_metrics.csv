@@ -1,2 +1,2 @@
 run_id,target,success,progress_rate,milestones_hit,ttfs_seconds,step_count,cloud_api_calls,cloud_cost_usd,exploit_attempts,successful_exploits,exploit_redundancy_rate,hosts_discovered,services_discovered,cves_mapped,run_start_ts,run_end_ts,duration_seconds
-10_10_10_10,10.10.10.10,False,0.0,[],,0,0,0.05,0,0,0.0,0,0,0,1786122035.3389258,1786122035.3413472,0.0024213790893554688
+10_10_10_10,10.10.10.10,False,0.0,[],,0,0,0.05,0,0,0.0,0,0,0,1786124064.251837,1786124064.2555137,0.0036766529083251953

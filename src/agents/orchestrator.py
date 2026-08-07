@@ -471,6 +471,7 @@ def check_success(state: PenTestState) -> Literal["report", "replan"]:
     - The last attempt succeeded
     - The exploit attempt budget is exhausted (max 9 attempts)
     - The step budget is exceeded
+    - No new exploit attempts were made in the last iteration (empty loop guard)
 
     Routes to 'replan' when the attempt failed and budget remains.
     """
@@ -500,6 +501,25 @@ def check_success(state: PenTestState) -> Literal["report", "replan"]:
         )
         state["termination_reason"] = "exploit_attempt_cap_reached"
         return "report"
+
+    # Empty-loop guard: if the last exploit node added no attempts
+    # (all candidates were hallucinations or no candidates existed)
+    # AND exploit_candidates is empty, there is nothing left to try.
+    # Route to report instead of spinning forever.
+    if not state.get("exploit_candidates") and last.error_type in (
+        "module_not_found",
+        "connection_refused",
+    ):
+        # Count how many consecutive module_not_found failures we have had.
+        recent = state["exploit_attempts"][-min(3, len(state["exploit_attempts"])):]
+        all_not_found = all(a.error_type == "module_not_found" for a in recent)
+        if all_not_found:
+            logger.warning(
+                "All recent attempts were module_not_found with no new candidates "
+                "— routing to report to avoid infinite loop."
+            )
+            state["termination_reason"] = "no_valid_modules_found"
+            return "report"
 
     # Still attempts remaining — try replanning
     return "replan"
@@ -545,7 +565,7 @@ def build_graph(
 
     workflow.add_conditional_edges("verify", check_success)
 
-    workflow.add_edge("replan", "exploit")
+    workflow.add_edge("replan", "analyze_graph")  # re-run LLM with failure context
     workflow.add_edge("report", END)
 
     return workflow.compile()

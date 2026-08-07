@@ -292,7 +292,16 @@ def exploit_node(state: PenTestState) -> PenTestState:
         # Clear candidates after consumption
         state["exploit_candidates"] = []
 
+    # If LLM generated no valid candidates, set llm_candidates = None so
+    # ExploitAgent auto-discovers real verified modules from Metasploit RPC
+    if llm_candidates is not None and len(llm_candidates) == 0:
+        logger.info(
+            "No valid LLM candidates available — falling back to Metasploit/SearchSploit discovery"
+        )
+        llm_candidates = None
+
     # Run the real Exploit Agent
+
     agent = ExploitAgent(attack_graph=ag, msf_client=msf_client)
     try:
         result = agent.run(state["target"], candidates=llm_candidates)

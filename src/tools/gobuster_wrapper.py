@@ -161,7 +161,6 @@ class GobusterWrapper:
                 proc.stderr.strip()[:200],
             )
 
-
         endpoints = self._parse_output(proc.stdout, target_url)
         result = GobusterResult(
             target_url=target_url,

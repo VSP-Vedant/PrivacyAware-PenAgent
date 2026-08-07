@@ -124,7 +124,9 @@ class LLMClient:
             logger.error("Ollama API call failed: %s", e)
             return self._mock_response()
 
-    def _mock_response(self, target_ip: str = "", port: int = 0, service: str = "") -> str:
+    def _mock_response(
+        self, target_ip: str = "", port: int = 0, service: str = ""
+    ) -> str:
         """Return a safe fallback JSON response when all LLM APIs fail.
 
         The fallback is intentionally empty (no recommendations) so the
@@ -136,4 +138,6 @@ class LLMClient:
             "Using empty fallback response — no LLM available. "
             "ExploitAgent will rely on SearchSploit module discovery."
         )
-        return json.dumps({"recommendations": [], "fallback": "searchsploit", "query": service or ""})
+        return json.dumps(
+            {"recommendations": [], "fallback": "searchsploit", "query": service or ""}
+        )

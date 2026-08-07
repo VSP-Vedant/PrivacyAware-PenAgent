@@ -62,9 +62,7 @@ msf_client = MetasploitRPCClient(
 )
 try:
     msf_client.connect()
-    logger.info(
-        "msfrpcd connected at %s:%s", MSF_RPC_HOST, MSF_RPC_PORT
-    )
+    logger.info("msfrpcd connected at %s:%s", MSF_RPC_HOST, MSF_RPC_PORT)
 except Exception as _msf_err:
     logger.warning(
         "msfrpcd not reachable (%s) — exploit module search will use "

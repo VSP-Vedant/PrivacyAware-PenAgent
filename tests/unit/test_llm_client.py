@@ -32,6 +32,7 @@ def test_generate_cloud_openai(client: LLMClient) -> None:
         with patch("src.router.llm_client.OPENAI_API_KEY", ""):
             res = client.generate(decision, "test prompt")
             import json as _json
+
             parsed = _json.loads(res)
             assert parsed["recommendations"] == []
             assert parsed["fallback"] == "searchsploit"
@@ -54,6 +55,7 @@ def test_generate_cloud_anthropic(client: LLMClient) -> None:
         with patch("src.router.llm_client.ANTHROPIC_API_KEY", ""):
             res = client.generate(decision, "test prompt")
             import json as _json
+
             parsed = _json.loads(res)
             assert parsed["recommendations"] == []
             assert parsed["fallback"] == "searchsploit"

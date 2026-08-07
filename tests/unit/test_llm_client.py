@@ -28,10 +28,13 @@ def test_generate_cloud_openai(client: LLMClient) -> None:
         }
         mock_post.return_value = mock_resp
 
-        # Test fallback when API key is None
+        # Test fallback when API key is None — new safe fallback returns empty recommendations
         with patch("src.router.llm_client.OPENAI_API_KEY", ""):
             res = client.generate(decision, "test prompt")
-            assert "Mocked LLM fallback response" in res
+            import json as _json
+            parsed = _json.loads(res)
+            assert parsed["recommendations"] == []
+            assert parsed["fallback"] == "searchsploit"
 
 
 def test_generate_cloud_anthropic(client: LLMClient) -> None:
@@ -47,10 +50,13 @@ def test_generate_cloud_anthropic(client: LLMClient) -> None:
         mock_resp.json.return_value = {"content": [{"text": "mock_response"}]}
         mock_post.return_value = mock_resp
 
-        # Test fallback when API key is None
+        # Test fallback when API key is None — new safe fallback returns empty recommendations
         with patch("src.router.llm_client.ANTHROPIC_API_KEY", ""):
             res = client.generate(decision, "test prompt")
-            assert "Mocked LLM fallback response" in res
+            import json as _json
+            parsed = _json.loads(res)
+            assert parsed["recommendations"] == []
+            assert parsed["fallback"] == "searchsploit"
 
 
 def test_generate_local_ollama(client: LLMClient) -> None:

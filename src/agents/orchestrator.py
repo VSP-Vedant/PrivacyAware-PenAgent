@@ -31,6 +31,12 @@ from src.agents.exploit_agent import ExploitAgent, ExploitCandidate
 from src.agents.recon_agent import ReconAgent
 from src.agents.verification_agent import VerificationAgent
 from src.config.prompts import get_prompt
+from src.config.settings import (
+    MSF_RPC_HOST,
+    MSF_RPC_PASSWORD,
+    MSF_RPC_PORT,
+    MSF_RPC_SSL,
+)
 from src.evaluation.metrics import RunMetrics, compute_metrics, save_run_metrics
 from src.reporting.report_generator import ReportGenerator
 from src.router.complexity import TaskType
@@ -44,8 +50,27 @@ from src.utils.logging_config import setup_logger
 
 logger = setup_logger(__name__)
 
-# Module-level instances for tools that maintain connections
-msf_client = MetasploitRPCClient()
+# Module-level instances for tools that maintain connections.
+# Auto-connect to msfrpcd on import using environment credentials.
+# If msfrpcd is not running the connect() call logs a warning and the
+# agent degrades gracefully (SearchSploit fallback is used instead).
+msf_client = MetasploitRPCClient(
+    host=MSF_RPC_HOST,
+    port=MSF_RPC_PORT,
+    password=MSF_RPC_PASSWORD,
+    ssl=MSF_RPC_SSL,
+)
+try:
+    msf_client.connect()
+    logger.info(
+        "msfrpcd connected at %s:%s", MSF_RPC_HOST, MSF_RPC_PORT
+    )
+except Exception as _msf_err:
+    logger.warning(
+        "msfrpcd not reachable (%s) — exploit module search will use "
+        "SearchSploit fallback only. Start msfrpcd to enable Metasploit.",
+        _msf_err,
+    )
 
 # Module-level LLM infrastructure (shared across nodes)
 _router = LLMRouter()

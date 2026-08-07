@@ -151,6 +151,16 @@ class GobusterWrapper:
                 f"Gobuster exited with code {proc.returncode}: "
                 f"{proc.stderr.strip()}"
             )
+        # Non-zero exit WITH output means a wildcard-redirect warning was
+        # logged by gobuster but some results may still be present.
+        if proc.returncode != 0 and proc.stdout:
+            logger.warning(
+                "Gobuster exited with code %d (wildcard redirect detected — "
+                "results may be incomplete): %s",
+                proc.returncode,
+                proc.stderr.strip()[:200],
+            )
+
 
         endpoints = self._parse_output(proc.stdout, target_url)
         result = GobusterResult(
@@ -251,6 +261,7 @@ class GobusterWrapper:
             "-t",
             str(self._threads),
             "-q",
+            "--wildcard",  # auto-handle 302 wildcard redirects on virtual hosts
         ]
         if extensions:
             cmd.extend(["-x", extensions])

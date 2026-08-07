@@ -1,0 +1,20 @@
+{
+  "run_id": "10_10_10_10",
+  "target": "10.10.10.10",
+  "success": false,
+  "progress_rate": 0.0,
+  "milestones_hit": "[]",
+  "ttfs_seconds": null,
+  "step_count": 0,
+  "cloud_api_calls": 0,
+  "cloud_cost_usd": 0.05,
+  "exploit_attempts": 0,
+  "successful_exploits": 0,
+  "exploit_redundancy_rate": 0.0,
+  "hosts_discovered": 0,
+  "services_discovered": 0,
+  "cves_mapped": 0,
+  "run_start_ts": 1786111494.5339143,
+  "run_end_ts": 1786111494.535439,
+  "duration_seconds": 0.0015246868133544922
+}

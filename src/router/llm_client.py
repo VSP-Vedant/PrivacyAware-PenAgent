@@ -95,34 +95,45 @@ class LLMClient:
             return self._mock_response()
 
     def _call_ollama(self, model: str, prompt: str) -> str:
-        """Call local Ollama API."""
+        """Call local Ollama API with enforced JSON output."""
         logger.info("Calling local Ollama with model %s", model)
         url = f"{OLLAMA_HOST}/api/generate"
+        # Prepend a strict JSON-only instruction so the model does not wrap
+        # its answer in markdown prose or explanation text.
+        json_prefix = (
+            "IMPORTANT: You MUST respond with ONLY raw JSON. "
+            "No markdown, no code fences, no explanation text. "
+            "Start your response with { and end with }.\n\n"
+        )
         data: dict[str, Any] = {
             "model": model,
-            "prompt": prompt,
+            "prompt": json_prefix + prompt,
             "stream": False,
+            "format": "json",  # Ollama native JSON mode (>=0.1.9)
         }
         try:
-            resp = requests.post(url, json=data, timeout=60)
+            # 180s: allows cold model load on CPU-only VMs
+            resp = requests.post(url, json=data, timeout=180)
             resp.raise_for_status()
-            return str(resp.json()["response"])
+            raw = str(resp.json()["response"]).strip()
+            # Strip any accidental markdown fences the model added
+            if raw.startswith("```"):
+                raw = raw.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+            return raw
         except Exception as e:
             logger.error("Ollama API call failed: %s", e)
             return self._mock_response()
 
-    def _mock_response(self) -> str:
-        """Return a mock JSON response for when APIs fail or keys are missing."""
-        return json.dumps(
-            {
-                "recommendations": [
-                    {
-                        "module_path": "exploit/unix/ftp/vsftpd_234_backdoor",
-                        "options": {"RPORT": 21},
-                        "payload": "cmd/unix/interact",
-                        "confidence": 0.9,
-                        "reasoning": "Mocked LLM fallback response.",
-                    }
-                ]
-            }
+    def _mock_response(self, target_ip: str = "", port: int = 0, service: str = "") -> str:
+        """Return a safe fallback JSON response when all LLM APIs fail.
+
+        The fallback is intentionally empty (no recommendations) so the
+        exploit node falls through to SearchSploit discovery against the
+        *actual* services in the attack graph rather than blindly trying
+        a hardcoded module against a hardcoded IP.
+        """
+        logger.warning(
+            "Using empty fallback response — no LLM available. "
+            "ExploitAgent will rely on SearchSploit module discovery."
         )
+        return json.dumps({"recommendations": [], "fallback": "searchsploit", "query": service or ""})

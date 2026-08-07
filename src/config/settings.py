@@ -36,7 +36,12 @@ CLOUD_MODEL_FALLBACK: str = os.getenv(
 
 # ─── LLM — Local (Ollama) ─────────────────────────────────────────────────────
 
-OLLAMA_HOST: str = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+# Accept both OLLAMA_HOST and OLLAMA_BASE_URL (as documented in setup guides)
+OLLAMA_HOST: str = (
+    os.getenv("OLLAMA_HOST")
+    or os.getenv("OLLAMA_BASE_URL")
+    or "http://localhost:11434"
+)
 OLLAMA_MODEL_LOCAL: str = os.getenv("OLLAMA_MODEL_LOCAL", "llama3:8b-instruct-q4_K_M")
 OLLAMA_MODEL_FALLBACK: str = os.getenv(
     "OLLAMA_MODEL_FALLBACK", "mistral:7b-instruct-v0.3-q4_K_M"
@@ -46,7 +51,8 @@ OLLAMA_MODEL_FALLBACK: str = os.getenv(
 
 MSF_RPC_HOST: str = os.getenv("MSF_RPC_HOST", "127.0.0.1")
 MSF_RPC_PORT: int = int(os.getenv("MSF_RPC_PORT", "55553"))
-MSF_RPC_PASSWORD: str = os.getenv("MSF_RPC_PASSWORD", "")
+# Accept both MSF_RPC_PASSWORD and the shorter MSF_RPC_PASS alias
+MSF_RPC_PASSWORD: str = os.getenv("MSF_RPC_PASSWORD", "") or os.getenv("MSF_RPC_PASS", "")
 MSF_RPC_SSL: bool = os.getenv("MSF_RPC_SSL", "false").lower() == "true"
 
 # ─── LLM Router Thresholds ────────────────────────────────────────────────────

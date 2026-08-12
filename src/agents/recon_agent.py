@@ -68,8 +68,8 @@ class ReconAgent:
     def __init__(
         self,
         attack_graph: AttackGraph,
-        nmap_timeout: int = 600,
-        scan_type: str = "default",
+        nmap_timeout: int = 300,
+        scan_type: str = "quick",
         use_gobuster: bool = True,
         use_cve_mapping: bool = True,
     ) -> None:

@@ -92,12 +92,26 @@ def recon_node(state: PenTestState) -> PenTestState:
     target = state["target"]
     ag: AttackGraph = state["attack_graph"]
 
+    # Pick scan preset from state (set by CLI --mode in main.py)
+    # Falls back to 'quick' if not set (safe default for HTB VPN)
+    scan_type = state.get("nmap_scan_type", "quick")
+
+    print(f"[RECON] Starting nmap scan against {target} (preset: {scan_type}) ...")
+    print(f"[RECON] This may take 1-5 min over VPN. Check logs for live progress.")
+
     # Run the real Recon Agent
-    agent = ReconAgent(attack_graph=ag)
+    agent = ReconAgent(attack_graph=ag, scan_type=scan_type)
     try:
-        agent.run(target)
+        result = agent.run(target)
+        print(
+            f"[RECON] Done: {len(result.hosts)} hosts, "
+            f"{len(result.services)} services, "
+            f"{len(result.web_endpoints)} web endpoints, "
+            f"{len(result.cve_candidates)} CVE candidates"
+        )
     except Exception as e:
         logger.error("Recon node failed: %s", e)
+        print(f"[RECON] ERROR: {e}")
 
     state["step_count"] += 1
     return state
@@ -111,12 +125,14 @@ def analyze_graph_node(state: PenTestState) -> PenTestState:
     invokes the LLMClient to generate module recommendations.
     """
     logger.info("Executing analyze_graph node")
+    print("[ANALYZE] Querying attack graph for exploitable services ...")
     ag: AttackGraph = state["attack_graph"]
 
     # Query exploitable services from the attack graph
     exploitable = ag.get_exploitable_services()
     if not exploitable:
         logger.info("No exploitable services — skipping LLM analysis")
+        print("[ANALYZE] No exploitable services found. Skipping LLM analysis.")
         state["step_count"] += 1
         return state
 

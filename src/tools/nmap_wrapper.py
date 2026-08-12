@@ -28,11 +28,13 @@ ALLOWED_TARGET_RANGES = [
 ]
 
 # Scan type presets
+# --min-rate 1000  : never probe slower than 1000 pkts/sec (prevents VPN stall)
+# --max-retries 1  : don't retry filtered ports more than once (3x faster)
 SCAN_PRESETS: dict[str, str] = {
-    "default": "-sV -sC",
-    "full": "-sV -sC -O -p-",
-    "quick": "-sV --top-ports 100",
-    "stealth": "-sS -sV",
+    "default": "-sV -sC --min-rate 1000 --max-retries 1",
+    "full": "-sV -sC -O -p- --min-rate 2000 --max-retries 1",
+    "quick": "-sV --top-ports 100 --min-rate 1000 --max-retries 1",
+    "stealth": "-sS -sV --min-rate 500 --max-retries 1",
 }
 
 
@@ -89,7 +91,7 @@ class NmapWrapper:
         timeout: Maximum scan duration in seconds.
     """
 
-    def __init__(self, timeout: int = 600) -> None:
+    def __init__(self, timeout: int = 300) -> None:
         """Initialize NmapWrapper.
 
         Args:

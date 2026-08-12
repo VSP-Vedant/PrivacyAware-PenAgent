@@ -8,6 +8,7 @@ All exploit execution is gated by ALLOWED_TARGET_RANGES validation.
 from __future__ import annotations
 
 import logging
+import socket
 import time
 from dataclasses import dataclass, field
 from ipaddress import ip_address, ip_network
@@ -174,12 +175,33 @@ class MetasploitRPCClient:
     def connect(self) -> bool:
         """Establish a connection to the Metasploit RPC daemon.
 
+        Performs a fast TCP port check (3 s timeout) before attempting
+        the SSL handshake so that the call returns immediately when
+        msfrpcd is not running, instead of hanging indefinitely.
+
         Returns:
             True when the connection succeeds.
 
         Raises:
             MetasploitConnectionError: If the daemon is unreachable.
         """
+        # ── Fast port reachability check (no SSL, raw TCP) ──────────
+        # This avoids the pymetasploit3 SSL handshake hang when msfrpcd
+        # is not listening. A refused/timed-out raw TCP connect is cheap.
+        try:
+            with socket.create_connection(
+                (self._host, self._port), timeout=3.0
+            ):
+                pass  # port is open — proceed to full RPC auth below
+        except (OSError, socket.timeout) as _tcp_err:
+            raise MetasploitConnectionError(
+                f"msfrpcd TCP port {self._host}:{self._port} is not open "
+                f"({_tcp_err}). Is msfrpcd running?"
+            ) from _tcp_err
+
+        # ── Full RPC authentication (SSL) ────────────────────────────
+        _prev_timeout = socket.getdefaulttimeout()
+        socket.setdefaulttimeout(10)  # cap SSL handshake at 10 s
         try:
             from pymetasploit3.msfrpc import MsfRpcClient  # noqa: WPS433
 
@@ -214,6 +236,8 @@ class MetasploitRPCClient:
             raise MetasploitConnectionError(
                 f"Cannot reach msfrpcd at {self._host}:{self._port}"
             ) from exc
+        finally:
+            socket.setdefaulttimeout(_prev_timeout)
 
 
     def disconnect(self) -> None:

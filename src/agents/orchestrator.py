@@ -50,25 +50,15 @@ from src.utils.logging_config import setup_logger
 
 logger = setup_logger(__name__)
 
-# Module-level instances for tools that maintain connections.
-# Auto-connect to msfrpcd on import using environment credentials.
-# If msfrpcd is not running the connect() call logs a warning and the
-# agent degrades gracefully (SearchSploit fallback is used instead).
+# MetasploitRPCClient instance — created here (no network I/O) but the
+# actual TCP connect() is deferred to build_graph() so that importing
+# this module never blocks the process when msfrpcd is not running.
 msf_client = MetasploitRPCClient(
     host=MSF_RPC_HOST,
     port=MSF_RPC_PORT,
     password=MSF_RPC_PASSWORD,
     ssl=MSF_RPC_SSL,
 )
-try:
-    msf_client.connect()
-    logger.info("msfrpcd connected at %s:%s", MSF_RPC_HOST, MSF_RPC_PORT)
-except Exception as _msf_err:
-    logger.warning(
-        "msfrpcd not reachable (%s) — exploit module search will use "
-        "SearchSploit fallback only. Start msfrpcd to enable Metasploit.",
-        _msf_err,
-    )
 
 # Module-level LLM infrastructure (shared across nodes)
 _router = LLMRouter()
@@ -572,6 +562,24 @@ def build_graph(
                                     ↓
                                  exploit  (retry loop)
     """
+    # Attempt msfrpcd connection here (not at import time) so that the
+    # banner and Ollama check in main.py always print before any network I/O.
+    print("[*] Connecting to msfrpcd (Metasploit RPC) ...")
+    try:
+        msf_client.connect()
+        logger.info("msfrpcd connected at %s:%s", MSF_RPC_HOST, MSF_RPC_PORT)
+        print(f"[OK]  msfrpcd connected at {MSF_RPC_HOST}:{MSF_RPC_PORT}")
+    except Exception as _msf_err:
+        logger.warning(
+            "msfrpcd not reachable (%s) — exploit module search will use "
+            "SearchSploit fallback only. Start msfrpcd to enable Metasploit.",
+            _msf_err,
+        )
+        print(
+            f"[WARN] msfrpcd not reachable — Metasploit disabled, "
+            "SearchSploit fallback active."
+        )
+
     workflow = StateGraph(PenTestState)
 
     workflow.add_node("recon", recon_node)

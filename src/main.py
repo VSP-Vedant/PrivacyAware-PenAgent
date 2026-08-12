@@ -11,7 +11,6 @@ import time
 
 import requests
 
-from src.agents.orchestrator import build_graph
 from src.config.settings import MAX_TOTAL_STEPS, OLLAMA_HOST
 from src.state.attack_graph import AttackGraph
 from src.state.persistence import PersistenceManager
@@ -152,7 +151,10 @@ def main() -> None:
         "nmap_scan_type": scan_type,  # passed to recon_node
     }
 
-    # Build LangGraph — pass ablation flags
+    # Build LangGraph — import here (not at top of file) so that any
+    # module-level code in orchestrator.py only runs AFTER the banner
+    # and Ollama check above have already printed to the terminal.
+    from src.agents.orchestrator import build_graph  # noqa: PLC0415
     app = build_graph(no_verify=args.no_verify)
 
     # Execute graph

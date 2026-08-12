@@ -31,12 +31,6 @@ from src.agents.exploit_agent import ExploitAgent, ExploitCandidate
 from src.agents.recon_agent import ReconAgent
 from src.agents.verification_agent import VerificationAgent
 from src.config.prompts import get_prompt
-from src.config.settings import (
-    MSF_RPC_HOST,
-    MSF_RPC_PASSWORD,
-    MSF_RPC_PORT,
-    MSF_RPC_SSL,
-)
 from src.evaluation.metrics import RunMetrics, compute_metrics, save_run_metrics
 from src.reporting.report_generator import ReportGenerator
 from src.router.complexity import TaskType
@@ -45,20 +39,9 @@ from src.router.llm_client import LLMClient
 from src.router.llm_router import LLMRouter
 from src.state.attack_graph import AttackGraph
 from src.state.schemas import PenTestState
-from src.tools.metasploit_rpc import MetasploitRPCClient
 from src.utils.logging_config import setup_logger
 
 logger = setup_logger(__name__)
-
-# MetasploitRPCClient instance — created here (no network I/O) but the
-# actual TCP connect() is deferred to build_graph() so that importing
-# this module never blocks the process when msfrpcd is not running.
-msf_client = MetasploitRPCClient(
-    host=MSF_RPC_HOST,
-    port=MSF_RPC_PORT,
-    password=MSF_RPC_PASSWORD,
-    ssl=MSF_RPC_SSL,
-)
 
 # Module-level LLM infrastructure (shared across nodes)
 _router = LLMRouter()
@@ -562,23 +545,11 @@ def build_graph(
                                     ↓
                                  exploit  (retry loop)
     """
-    # Attempt msfrpcd connection here (not at import time) so that the
-    # banner and Ollama check in main.py always print before any network I/O.
-    print("[*] Connecting to msfrpcd (Metasploit RPC) ...")
-    try:
-        msf_client.connect()
-        logger.info("msfrpcd connected at %s:%s", MSF_RPC_HOST, MSF_RPC_PORT)
-        print(f"[OK]  msfrpcd connected at {MSF_RPC_HOST}:{MSF_RPC_PORT}")
-    except Exception as _msf_err:
-        logger.warning(
-            "msfrpcd not reachable (%s) — exploit module search will use "
-            "SearchSploit fallback only. Start msfrpcd to enable Metasploit.",
-            _msf_err,
-        )
-        print(
-            f"[WARN] msfrpcd not reachable — Metasploit disabled, "
-            "SearchSploit fallback active."
-        )
+    # NOTE: msfrpcd connection is intentionally NOT attempted here.
+    # build_graph() is called for ALL run modes (including recon-only)
+    # and must never block on network I/O. The ExploitAgent manages
+    # its own MSF connection lazily inside exploit_node() only when needed.
+    print("[*] Building execution graph ...")
 
     workflow = StateGraph(PenTestState)
 

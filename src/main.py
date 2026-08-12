@@ -9,13 +9,49 @@ import argparse
 import sys
 import time
 
+import requests
+
 from src.agents.orchestrator import build_graph
-from src.config.settings import MAX_TOTAL_STEPS
+from src.config.settings import MAX_TOTAL_STEPS, OLLAMA_HOST
 from src.state.attack_graph import AttackGraph
 from src.state.persistence import PersistenceManager
 from src.state.schemas import PenTestState
 from src.utils.logging_config import get_run_logger
 from src.utils.validators import TargetValidationError, validate_target
+
+_BANNER = """
+╔══════════════════════════════════════════════════════╗
+║          PrivacyAware-PenAgent  v0.1                 ║
+╚══════════════════════════════════════════════════════╝"""
+
+
+def _check_ollama(no_router: bool) -> None:
+    """Warn if Ollama is unreachable when the local route will be used."""
+    try:
+        r = requests.get(f"{OLLAMA_HOST}/api/tags", timeout=5)
+        tags = r.json().get("models", [])
+        if not tags:
+            print(
+                "[WARN] Ollama is running but NO models are loaded.\n"
+                "       Run: ollama pull xploiter/pentester"
+            )
+        else:
+            names = [m.get("name", "") for m in tags]
+            print(f"[OK]  Ollama reachable — loaded models: {', '.join(names)}")
+    except Exception:
+        print(
+            "[WARN] Ollama is NOT reachable at",
+            OLLAMA_HOST,
+            "\n"
+            "       Local LLM calls will fail (180 s timeout each).\n"
+            "       Start Ollama: ollama serve",
+        )
+        if no_router:
+            print(
+                "[ERR]  --no-router forces LOCAL route but Ollama is down.\n"
+                "       Either start Ollama or remove --no-router."
+            )
+            sys.exit(1)
 
 
 def main() -> None:
@@ -50,6 +86,14 @@ def main() -> None:
     run_id = f"{args.target.replace('/', '_')}_{run_ts}"
     logger = get_run_logger(run_id)
 
+    print(_BANNER)
+    print(f"[*] Target      : {args.target}")
+    print(f"[*] Mode        : {args.mode}")
+    print(f"[*] No-router   : {args.no_router}")
+    print(f"[*] Run ID      : {run_id}")
+    print(f"[*] Log file    : logs/{run_id}.jsonl")
+    print()
+
     logger.info(
         "Starting PenAgent",
         extra={"target": args.target, "mode": args.mode, "run_id": run_id},
@@ -59,6 +103,7 @@ def main() -> None:
         validate_target(args.target)
     except TargetValidationError as e:
         logger.critical(str(e))
+        print(f"[ERR] Target validation failed: {e}")
         sys.exit(1)
 
     if args.no_graph:
@@ -70,10 +115,22 @@ def main() -> None:
     if args.no_verify:
         logger.info("Verification ablation mode enabled. Skipping verify node.")
 
+    # Ollama health check — warn early instead of hanging silently later
+    _check_ollama(args.no_router)
+
     # Initialize state — each run gets its OWN fresh database so data from
     # previous runs never contaminates the current attack graph.
     target_safe = args.target.replace(".", "_").replace("/", "_")
     run_db_path = f"runs/{target_safe}_{run_ts}.db"
+
+    # Map CLI --mode to nmap scan preset:
+    #   recon-only → quick  (top 100 ports, ~1-2 min over VPN)
+    #   full       → default (-sV -sC top 1000 ports, ~3-5 min)
+    # Use NMAP_SCAN_TYPE env override to force any preset.
+    import os
+    _mode_to_scan = {"full": "default", "recon-only": "quick"}
+    scan_type = os.getenv("NMAP_SCAN_TYPE", _mode_to_scan.get(args.mode, "quick"))
+
     initial_state: PenTestState = {
         "target": args.target,
         "attack_graph": AttackGraph(db_path=run_db_path),
@@ -92,6 +149,7 @@ def main() -> None:
         "start_time": "",
         "end_time": "",
         "termination_reason": "",
+        "nmap_scan_type": scan_type,  # passed to recon_node
     }
 
     # Build LangGraph — pass ablation flags
@@ -99,6 +157,9 @@ def main() -> None:
 
     # Execute graph
     logger.info("Invoking graph")
+    print(f"[*] Nmap preset : {scan_type}")
+    print(f"[*] Starting graph execution ... (logs → logs/{run_id}.jsonl)")
+    print()
     try:
         final_state = app.invoke(initial_state)
 

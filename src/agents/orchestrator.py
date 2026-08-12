@@ -290,8 +290,8 @@ def exploit_node(state: PenTestState) -> PenTestState:
         llm_candidates = None
 
     # Run the real Exploit Agent
-
-    agent = ExploitAgent(attack_graph=ag, msf_client=msf_client)
+    # msf_client is passed as None so ExploitAgent initializes MetasploitRPCClient lazily
+    agent = ExploitAgent(attack_graph=ag, msf_client=None)
     try:
         result = agent.run(state["target"], candidates=llm_candidates)
         # Append attempts to state
@@ -326,7 +326,7 @@ def verify_node(state: PenTestState) -> PenTestState:
     # Use the full VerificationAgent (not the stub)
     agent = VerificationAgent(
         attack_graph=state["attack_graph"],
-        msf_client=msf_client if msf_client.is_connected() else None,
+        msf_client=None,
     )
     result = agent.verify_attempt(last_attempt)
 
@@ -454,7 +454,15 @@ def report_node(state: PenTestState) -> PenTestState:
 
 
 def has_exploitable(state: PenTestState) -> Literal["exploit", "report"]:
-    """Conditional edge: route to exploit if services found, else report."""
+    """Conditional edge: route to exploit if services found, else report.
+    
+    If state['mode'] is 'recon-only', force route to 'report'.
+    """
+    if state.get("mode") == "recon-only":
+        logger.info("Recon-only mode — routing directly to report")
+        state["termination_reason"] = "recon_only_completed"
+        return "report"
+
     ag: AttackGraph = state["attack_graph"]
     if ag.get_exploitable_services():
         return "exploit"

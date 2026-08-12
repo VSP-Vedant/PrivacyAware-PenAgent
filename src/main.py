@@ -149,6 +149,7 @@ def main() -> None:
         "end_time": "",
         "termination_reason": "",
         "nmap_scan_type": scan_type,  # passed to recon_node
+        "mode": args.mode,
     }
 
     # Build LangGraph — import here (not at top of file) so that any

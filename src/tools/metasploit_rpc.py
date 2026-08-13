@@ -189,9 +189,7 @@ class MetasploitRPCClient:
         # This avoids the pymetasploit3 SSL handshake hang when msfrpcd
         # is not listening. A refused/timed-out raw TCP connect is cheap.
         try:
-            with socket.create_connection(
-                (self._host, self._port), timeout=3.0
-            ):
+            with socket.create_connection((self._host, self._port), timeout=3.0):
                 pass  # port is open — proceed to full RPC auth below
         except (OSError, socket.timeout) as _tcp_err:
             raise MetasploitConnectionError(
@@ -211,13 +209,16 @@ class MetasploitRPCClient:
                 port=self._port,
                 ssl=self._ssl,
             )
-            logger.info(f"Connected to msfrpcd at {self._host}:{self._port} (ssl={self._ssl})")
+            logger.info(
+                f"Connected to msfrpcd at {self._host}:{self._port} (ssl={self._ssl})"
+            )
             return True
         except (ConnectionError, OSError, Exception) as exc:
             # Attempt auto-fallback to opposite SSL mode if connection was reset/rejected
             fallback_ssl = not self._ssl
             try:
                 from pymetasploit3.msfrpc import MsfRpcClient
+
                 self._client = MsfRpcClient(
                     self._password,
                     server=self._host,
@@ -225,7 +226,9 @@ class MetasploitRPCClient:
                     ssl=fallback_ssl,
                 )
                 self._ssl = fallback_ssl
-                logger.info(f"Connected to msfrpcd via SSL fallback (ssl={fallback_ssl})")
+                logger.info(
+                    f"Connected to msfrpcd via SSL fallback (ssl={fallback_ssl})"
+                )
                 return True
             except Exception:
                 pass
@@ -238,7 +241,6 @@ class MetasploitRPCClient:
             ) from exc
         finally:
             socket.setdefaulttimeout(_prev_timeout)
-
 
     def disconnect(self) -> None:
         """Release the RPC connection and clean up resources."""

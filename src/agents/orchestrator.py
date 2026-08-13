@@ -201,9 +201,7 @@ def analyze_graph_node(state: PenTestState) -> PenTestState:
 
         # If LLM chose the fallback path, skip to SearchSploit (no candidates)
         if parsed.get("fallback") == "searchsploit":
-            logger.info(
-                "LLM deferred to SearchSploit for: %s", parsed.get("query", "")
-            )
+            logger.info("LLM deferred to SearchSploit for: %s", parsed.get("query", ""))
         else:
             recommendations = parsed.get("recommendations", [])
             for rec in recommendations:
@@ -223,7 +221,9 @@ def analyze_graph_node(state: PenTestState) -> PenTestState:
                 candidates.append(
                     {
                         "module_path": module_path,
-                        "payload": rec.get("payload", rec.get("recommended_payload", "")),
+                        "payload": rec.get(
+                            "payload", rec.get("recommended_payload", "")
+                        ),
                         "confidence": rec.get(
                             "confidence", rec.get("confidence_score", 0.5)
                         ),
@@ -235,7 +235,6 @@ def analyze_graph_node(state: PenTestState) -> PenTestState:
 
     state["exploit_candidates"] = candidates
     logger.info("LLM generated %d valid exploit candidates", len(candidates))
-
 
     state["step_count"] += 1
     return state
@@ -455,7 +454,7 @@ def report_node(state: PenTestState) -> PenTestState:
 
 def has_exploitable(state: PenTestState) -> Literal["exploit", "report"]:
     """Conditional edge: route to exploit if services found, else report.
-    
+
     If state['mode'] is 'recon-only', force route to 'report'.
     """
     if state.get("mode") == "recon-only":
@@ -517,7 +516,7 @@ def check_success(state: PenTestState) -> Literal["report", "replan"]:
         "connection_refused",
     ):
         # Count how many consecutive module_not_found failures we have had.
-        recent = state["exploit_attempts"][-min(3, len(state["exploit_attempts"])):]
+        recent = state["exploit_attempts"][-min(3, len(state["exploit_attempts"])) :]
         all_not_found = all(a.error_type == "module_not_found" for a in recent)
         if all_not_found:
             logger.warning(

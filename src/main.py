@@ -127,6 +127,7 @@ def main() -> None:
     #   full       → default (-sV -sC top 1000 ports, ~3-5 min)
     # Use NMAP_SCAN_TYPE env override to force any preset.
     import os
+
     _mode_to_scan = {"full": "default", "recon-only": "quick"}
     scan_type = os.getenv("NMAP_SCAN_TYPE", _mode_to_scan.get(args.mode, "quick"))
 
@@ -156,6 +157,7 @@ def main() -> None:
     # module-level code in orchestrator.py only runs AFTER the banner
     # and Ollama check above have already printed to the terminal.
     from src.agents.orchestrator import build_graph  # noqa: PLC0415
+
     app = build_graph(no_verify=args.no_verify)
 
     # Execute graph

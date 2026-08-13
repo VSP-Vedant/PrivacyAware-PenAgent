@@ -260,12 +260,12 @@ class GobusterWrapper:
             "-t",
             str(self._threads),
             "-q",
-            "-b", "302,301",  # blacklist redirect codes from virtual-host targets
+            "-b",
+            "302,301",  # blacklist redirect codes from virtual-host targets
         ]
         if extensions:
             cmd.extend(["-x", extensions])
         return cmd
-
 
     @staticmethod
     def _validate_target(target_url: str) -> None:

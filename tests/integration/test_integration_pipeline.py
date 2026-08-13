@@ -218,10 +218,7 @@ def test_cloud_cost_tracking(
 
 
 @pytest.mark.integration
-@patch("src.agents.orchestrator.msf_client")
-def test_exploit_node_with_llm_candidates(
-    mock_msf: MagicMock,
-) -> None:
+def test_exploit_node_with_llm_candidates() -> None:
     """Verify exploit_node passes LLM candidates to ExploitAgent."""
     ag = AttackGraph()
     _populate_graph(ag)

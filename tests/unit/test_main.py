@@ -19,11 +19,15 @@ def _mock_final_state() -> dict[str, object]:
 
 
 @patch("sys.argv", ["main.py", "--target", "10.10.10.10"])
-@patch("src.main.build_graph")
+@patch("src.main._check_ollama")
+@patch("src.agents.orchestrator.build_graph")
 @patch("src.main.PersistenceManager")
 @patch("src.main.validate_target")
 def test_main_success(
-    mock_validate: MagicMock, mock_pm: MagicMock, mock_build_graph: MagicMock
+    mock_validate: MagicMock,
+    mock_pm: MagicMock,
+    mock_build_graph: MagicMock,
+    mock_check_ollama: MagicMock,
 ) -> None:
     """Test successful CLI execution with default args."""
     # Setup mocks
@@ -57,10 +61,11 @@ def test_main_invalid_target(mock_validate: MagicMock) -> None:
 
 
 @patch("sys.argv", ["main.py", "--target", "10.10.10.10", "--no-graph"])
-@patch("src.main.build_graph")
+@patch("src.main._check_ollama")
+@patch("src.agents.orchestrator.build_graph")
 @patch("src.main.validate_target")
 def test_main_graph_ablation(
-    mock_validate: MagicMock, mock_build_graph: MagicMock
+    mock_validate: MagicMock, mock_build_graph: MagicMock, mock_check_ollama: MagicMock
 ) -> None:
     """Test --no-graph ablation flag triggers warning and runs."""
     # Setup mocks
@@ -75,13 +80,15 @@ def test_main_graph_ablation(
 
 
 @patch("sys.argv", ["main.py", "--target", "10.10.10.10", "--no-router"])
-@patch("src.main.build_graph")
+@patch("src.main._check_ollama")
+@patch("src.agents.orchestrator.build_graph")
 @patch("src.main.PersistenceManager")
 @patch("src.main.validate_target")
 def test_main_no_router_flag(
     mock_validate: MagicMock,
     mock_pm: MagicMock,
     mock_build_graph: MagicMock,
+    mock_check_ollama: MagicMock,
 ) -> None:
     """Test --no-router flag sets router_enabled=False in initial state."""
     mock_app = MagicMock()
@@ -97,13 +104,15 @@ def test_main_no_router_flag(
 
 
 @patch("sys.argv", ["main.py", "--target", "10.10.10.10", "--no-verify"])
-@patch("src.main.build_graph")
+@patch("src.main._check_ollama")
+@patch("src.agents.orchestrator.build_graph")
 @patch("src.main.PersistenceManager")
 @patch("src.main.validate_target")
 def test_main_no_verify_flag(
     mock_validate: MagicMock,
     mock_pm: MagicMock,
     mock_build_graph: MagicMock,
+    mock_check_ollama: MagicMock,
 ) -> None:
     """Test --no-verify ablation flag is accepted without error."""
     mock_app = MagicMock()
@@ -117,13 +126,15 @@ def test_main_no_verify_flag(
 
 
 @patch("sys.argv", ["main.py", "--target", "10.10.10.10", "--visualize"])
-@patch("src.main.build_graph")
+@patch("src.main._check_ollama")
+@patch("src.agents.orchestrator.build_graph")
 @patch("src.main.PersistenceManager")
 @patch("src.main.validate_target")
 def test_main_visualize_flag(
     mock_validate: MagicMock,
     mock_pm: MagicMock,
     mock_build_graph: MagicMock,
+    mock_check_ollama: MagicMock,
 ) -> None:
     """Test --visualize flag triggers graph visualization."""
     mock_app = MagicMock()

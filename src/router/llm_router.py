@@ -62,9 +62,19 @@ class LLMRouter:
         self.sensitivity_threshold = float(os.getenv("SENSITIVITY_THRESHOLD", "0.6"))
         self.complexity_threshold = float(os.getenv("COMPLEXITY_THRESHOLD", "0.7"))
 
-        # Default model assignments
-        self.local_model = os.getenv("LOCAL_MODEL", "llama3:8b")
+        # Default model assignments — read OLLAMA_MODEL_LOCAL (matches .env key),
+        # falling back to LOCAL_MODEL for backwards compatibility with older configs.
+        self.local_model = (
+            os.getenv("OLLAMA_MODEL_LOCAL")
+            or os.getenv("LOCAL_MODEL")
+            or "llama3:8b"
+        )
         self.cloud_model = os.getenv("CLOUD_MODEL", "gpt-4o")
+
+        # Detect whether any cloud API key is configured
+        self._cloud_available = bool(
+            os.getenv("OPENAI_API_KEY") or os.getenv("ANTHROPIC_API_KEY")
+        )
 
         logger.debug(
             "LLM Router configured",
@@ -73,6 +83,7 @@ class LLMRouter:
                 "complexity_threshold": self.complexity_threshold,
                 "local_model": self.local_model,
                 "cloud_model": self.cloud_model,
+                "cloud_available": self._cloud_available,
             },
         )
 
@@ -127,6 +138,14 @@ class LLMRouter:
             decision = "LOCAL"
             model = self.local_model
             reasoning = "Forced local: cloud token budget exceeded"
+        elif not self._cloud_available:
+            # No cloud API keys configured — force LOCAL regardless of scores
+            decision = "LOCAL"
+            model = self.local_model
+            reasoning = (
+                "Forced local: no cloud API keys configured "
+                f"(sensitivity={sensitivity_score:.2f}, complexity={complexity_score:.2f})"
+            )
         elif (
             sensitivity_score >= self.sensitivity_threshold
             or complexity_score >= self.complexity_threshold

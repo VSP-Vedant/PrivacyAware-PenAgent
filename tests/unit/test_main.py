@@ -19,7 +19,7 @@ def _mock_final_state() -> dict[str, object]:
 
 
 @patch("sys.argv", ["main.py", "--target", "10.10.10.10"])
-@patch("src.main.build_graph")
+@patch("src.agents.orchestrator.build_graph")
 @patch("src.main.PersistenceManager")
 @patch("src.main.validate_target")
 def test_main_success(
@@ -57,7 +57,7 @@ def test_main_invalid_target(mock_validate: MagicMock) -> None:
 
 
 @patch("sys.argv", ["main.py", "--target", "10.10.10.10", "--no-graph"])
-@patch("src.main.build_graph")
+@patch("src.agents.orchestrator.build_graph")
 @patch("src.main.validate_target")
 def test_main_graph_ablation(
     mock_validate: MagicMock, mock_build_graph: MagicMock
@@ -75,7 +75,7 @@ def test_main_graph_ablation(
 
 
 @patch("sys.argv", ["main.py", "--target", "10.10.10.10", "--no-router"])
-@patch("src.main.build_graph")
+@patch("src.agents.orchestrator.build_graph")
 @patch("src.main.PersistenceManager")
 @patch("src.main.validate_target")
 def test_main_no_router_flag(
@@ -97,7 +97,7 @@ def test_main_no_router_flag(
 
 
 @patch("sys.argv", ["main.py", "--target", "10.10.10.10", "--no-verify"])
-@patch("src.main.build_graph")
+@patch("src.agents.orchestrator.build_graph")
 @patch("src.main.PersistenceManager")
 @patch("src.main.validate_target")
 def test_main_no_verify_flag(
@@ -117,7 +117,7 @@ def test_main_no_verify_flag(
 
 
 @patch("sys.argv", ["main.py", "--target", "10.10.10.10", "--visualize"])
-@patch("src.main.build_graph")
+@patch("src.agents.orchestrator.build_graph")
 @patch("src.main.PersistenceManager")
 @patch("src.main.validate_target")
 def test_main_visualize_flag(

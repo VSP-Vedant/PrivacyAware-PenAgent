@@ -345,3 +345,5 @@ class PenTestState(TypedDict):
     start_time: str
     end_time: str
     termination_reason: str
+    nmap_scan_type: str
+    mode: str

@@ -95,7 +95,11 @@ class LLMClient:
             return self._mock_response()
 
     def _call_ollama(self, model: str, prompt: str) -> str:
-        """Call local Ollama API with enforced JSON output."""
+        """Call local Ollama API with enforced JSON output.
+
+        If the primary model times out (e.g. large model on CPU-only host),
+        automatically retries with smaller fallback models before giving up.
+        """
         logger.info("Calling local Ollama with model %s", model)
         url = f"{OLLAMA_HOST}/api/generate"
         # Prepend a strict JSON-only instruction so the model does not wrap
@@ -111,18 +115,42 @@ class LLMClient:
             "stream": False,
             "format": "json",  # Ollama native JSON mode (>=0.1.9)
         }
-        try:
-            # 180s: allows cold model load on CPU-only VMs
-            resp = requests.post(url, json=data, timeout=180)
-            resp.raise_for_status()
-            raw = str(resp.json()["response"]).strip()
-            # Strip any accidental markdown fences the model added
-            if raw.startswith("```"):
-                raw = raw.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
-            return raw
-        except Exception as e:
-            logger.error("Ollama API call failed: %s", e)
-            return self._mock_response()
+
+        # Fallback chain: if primary model is slow/unavailable try smaller ones
+        # Order: fastest models that still fit in ~4 GB RAM (CPU-only host)
+        fallback_models = ["llama3.2:3b", "qwen2.5:7b", "llama3.2:1b"]
+        models_to_try = [model] + [m for m in fallback_models if m != model]
+
+        for attempt_model in models_to_try:
+            data["model"] = attempt_model
+            if attempt_model != model:
+                logger.warning(
+                    "Primary model %s timed out — retrying with fallback model %s",
+                    model,
+                    attempt_model,
+                )
+            try:
+                # 180s per model attempt — enough for a smaller model to respond
+                resp = requests.post(url, json=data, timeout=180)
+                resp.raise_for_status()
+                raw = str(resp.json()["response"]).strip()
+                # Strip any accidental markdown fences the model added
+                if raw.startswith("```"):
+                    raw = raw.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+                return raw
+            except requests.exceptions.Timeout:
+                logger.error(
+                    "Ollama API call timed out for model %s (timeout=180s)",
+                    attempt_model,
+                )
+                continue
+            except Exception as e:
+                logger.error("Ollama API call failed: %s", e)
+                return self._mock_response()
+
+        # All models exhausted
+        logger.error("All Ollama models timed out — using fallback response")
+        return self._mock_response()
 
     def _mock_response(
         self, target_ip: str = "", port: int = 0, service: str = ""

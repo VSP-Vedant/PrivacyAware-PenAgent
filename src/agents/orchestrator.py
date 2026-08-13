@@ -70,7 +70,7 @@ def recon_node(state: PenTestState) -> PenTestState:
     scan_type = state.get("nmap_scan_type", "quick")
 
     print(f"[RECON] Starting nmap scan against {target} (preset: {scan_type}) ...")
-    print(f"[RECON] This may take 1-5 min over VPN. Check logs for live progress.")
+    print("[RECON] This may take 1-5 min over VPN. Check logs for live progress.")
 
     # Run the real Recon Agent
     agent = ReconAgent(attack_graph=ag, scan_type=scan_type)

@@ -72,12 +72,14 @@ class ReconAgent:
         scan_type: str = "quick",
         use_gobuster: bool = True,
         use_cve_mapping: bool = True,
+        web_scanner: Any | None = None,
     ) -> None:
         """Docstring."""
         self._graph = attack_graph
         self._nmap = NmapWrapper(timeout=nmap_timeout)
         self._gobuster = GobusterWrapper()
         self._cve_mapper = CVEMapper(use_searchsploit=True)
+        self._web_scanner = web_scanner
         self._scan_type = scan_type
         self._use_gobuster = use_gobuster
         self._use_cve_mapping = use_cve_mapping
@@ -229,6 +231,50 @@ class ReconAgent:
                     url,
                     exc,
                 )
+
+        # High-signal WebScanner for fast endpoint and vulnerability discovery
+        if self._web_scanner is not None:
+            try:
+                for svc in http_services:
+                    vhost = ""
+                    if "vhost=" in svc.extra_info:
+                        import re
+
+                        m = re.search(r"vhost=([^\s,]+)", svc.extra_info)
+                        if m:
+                            vhost = m.group(1)
+                    ws_result = self._web_scanner.scan_service(
+                        target, svc.port, vhost=vhost if vhost else None
+                    )
+                    for ep in ws_result.endpoints:
+                        path = ep.url.replace(ws_result.base_url, "")
+                        if not any(e.path == path for e in all_endpoints):
+                            all_endpoints.append(
+                                WebEndpoint(
+                                    path=path,
+                                    status_code=ep.status_code,
+                                    length=0,
+                                )
+                            )
+                    # If WebScanner found direct CVEs, write to graph
+                    for cve in ws_result.cves:
+                        cve_node_id = cve.node_id
+                        if not self._graph.graph.has_node(cve_node_id):
+                            self._graph.graph.add_node(
+                                cve_node_id, **cve.to_dict()
+                            )
+                            service_node_id = (
+                                f"service:{target}:{svc.port}/{svc.protocol}"
+                            )
+                            if self._graph.graph.has_node(service_node_id):
+                                self._graph.graph.add_edge(
+                                    service_node_id,
+                                    cve_node_id,
+                                    relationship="vulnerable_to",
+                                )
+            except Exception as exc:
+                logger.debug("WebScanner helper scan skipped: %s", exc)
+
         return all_endpoints
 
     def _run_cve_mapping(

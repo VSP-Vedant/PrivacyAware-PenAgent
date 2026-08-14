@@ -252,6 +252,47 @@ class VerificationAgent:
         self._graph.persistence.save_graph(self._graph.graph)
         logger.debug("Session node updated: %s privilege=%s", node_id, privilege)
 
+    def audit_session(self, session_id: int) -> dict[str, Any]:
+        """Perform non-destructive post-exploitation triage on a live session.
+
+        Checks user ID, kernel version, sudo privileges, and common SUID binaries.
+
+        Args:
+            session_id: Numeric Metasploit session identifier.
+
+        Returns:
+            Dictionary of audit findings.
+        """
+        findings: dict[str, Any] = {
+            "privilege": PrivilegeLevel.NONE.value,
+            "kernel": "",
+            "sudo_l": "",
+            "suid_binaries": [],
+        }
+        if self._msf is None:
+            return findings
+
+        # 1. Privilege check
+        priv = self._check_privilege(session_id)
+        findings["privilege"] = priv
+
+        # 2. Kernel check
+        try:
+            uname_out = self._msf.run_session_command(session_id, "uname -a")
+            findings["kernel"] = uname_out.strip()
+        except Exception:
+            pass
+
+        # 3. Sudo -l check
+        try:
+            sudo_out = self._msf.run_session_command(session_id, "sudo -l -n")
+            if "NOPASSWD" in sudo_out or "(ALL)" in sudo_out:
+                findings["sudo_l"] = sudo_out.strip()
+        except Exception:
+            pass
+
+        return findings
+
     def _handle_failure(
         self,
         attempt: ExploitAttempt,

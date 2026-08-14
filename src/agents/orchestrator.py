@@ -39,6 +39,7 @@ from src.router.llm_client import LLMClient
 from src.router.llm_router import LLMRouter
 from src.state.attack_graph import AttackGraph
 from src.state.schemas import PenTestState
+from src.tools.metasploit_rpc import MetasploitRPCClient
 from src.utils.logging_config import setup_logger
 
 logger = setup_logger(__name__)
@@ -325,7 +326,7 @@ def verify_node(state: PenTestState) -> PenTestState:
     # Use the full VerificationAgent (not the stub)
     agent = VerificationAgent(
         attack_graph=state["attack_graph"],
-        msf_client=None,
+        msf_client=MetasploitRPCClient(),
     )
     result = agent.verify_attempt(last_attempt)
 

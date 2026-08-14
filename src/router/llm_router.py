@@ -19,6 +19,13 @@ from src.utils.logging_config import setup_logger
 logger = setup_logger(__name__)
 
 
+def _cloud_key_available() -> bool:
+    """Return True if at least one cloud API key is configured."""
+    import os
+
+    return bool(os.getenv("OPENAI_API_KEY", "") or os.getenv("ANTHROPIC_API_KEY", ""))
+
+
 @dataclass
 class RoutingDecision:
     """Information representing a routing decision."""

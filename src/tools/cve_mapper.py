@@ -54,6 +54,28 @@ _KNOWN_CVES: list[dict[str, Any]] = [
             },
         ],
     },
+    {
+        "service_pattern": r"^ssh$",
+        "product_pattern": r"OpenSSH",
+        "version_pattern": r"^(8\.[4-9]|9\.)",
+        "cves": [
+            {
+                "cve_id": "CVE-2023-38408",
+                "cvss_score": 9.8,
+                "description": "OpenSSH PKCS#11 provider arbitrary code execution",
+            },
+            {
+                "cve_id": "CVE-2024-6387",
+                "cvss_score": 8.1,
+                "description": "OpenSSH regreSSHion signal handler race condition RCE",
+            },
+            {
+                "cve_id": "CVE-2023-48795",
+                "cvss_score": 5.9,
+                "description": "OpenSSH Terrapin attack - prefix truncation vulnerability",
+            },
+        ],
+    },
     # Apache HTTP Server
     {
         "service_pattern": r"^https?$",
@@ -94,6 +116,23 @@ _KNOWN_CVES: list[dict[str, Any]] = [
                 "cve_id": "CVE-2019-20372",
                 "cvss_score": 5.3,
                 "description": "nginx before 1.17.7 HTTP request smuggling",
+            },
+        ],
+    },
+    {
+        "service_pattern": r"^https?$",
+        "product_pattern": r"nginx",
+        "version_pattern": r"^1\.(1[8-9]|2[0-6])\..*",
+        "cves": [
+            {
+                "cve_id": "CVE-2021-23017",
+                "cvss_score": 7.7,
+                "description": "nginx 0.6.18-1.20.0 DNS resolver off-by-one heap overflow",
+            },
+            {
+                "cve_id": "CVE-2022-41741",
+                "cvss_score": 7.8,
+                "description": "nginx mp4 module memory corruption vulnerability",
             },
         ],
     },

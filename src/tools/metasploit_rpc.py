@@ -8,11 +8,16 @@ All exploit execution is gated by ALLOWED_TARGET_RANGES validation.
 from __future__ import annotations
 
 import logging
+import os
 import socket
+import subprocess
 import time
 from dataclasses import dataclass, field
 from ipaddress import ip_address, ip_network
 from typing import Any
+
+import msgpack
+import requests as _requests
 
 logger = logging.getLogger(__name__)
 
@@ -140,10 +145,10 @@ class MetasploitRPCClient:
         """Store connection parameters without connecting.
 
         Args:
-            host: Address of the msfrpcd daemon.
-            port: TCP port of the msfrpcd daemon.
-            password: Authentication password for msfrpcd.
-            ssl: Whether to use SSL/TLS for the connection.
+            host: Address of the msfrpcd daemon (default: 127.0.0.1).
+            port: TCP port of the msfrpcd daemon (default: 55553).
+            password: Authentication password (default: read from config/env).
+            ssl: Whether to use SSL/TLS (default: True).
         """
         self._host = host
         self._port = port
@@ -151,7 +156,7 @@ class MetasploitRPCClient:
         self._ssl = ssl
         self._client: Any | None = None
         logger.debug(
-            f"MetasploitRPCClient configured for " f"{host}:{port} (ssl={ssl})"
+            f"MetasploitRPCClient configured for {self._host}:{self._port} (ssl={self._ssl})"
         )
 
     # -- context manager ----------------------------------------------------
@@ -175,133 +180,136 @@ class MetasploitRPCClient:
     def connect(self) -> bool:
         """Establish a connection to the Metasploit RPC daemon.
 
-        Performs a fast TCP port check (3 s timeout) before attempting
-        the SSL handshake so that the call returns immediately when
-        msfrpcd is not running, instead of hanging indefinitely.
+        Uses direct msgpack-over-HTTP calls to avoid pymetasploit3
+        bytes-key Python-3.13 incompatibility.
 
         Returns:
             True when the connection succeeds.
 
         Raises:
-            MetasploitConnectionError: If the daemon is unreachable.
+            MetasploitConnectionError: If the daemon is unreachable or auth fails.
         """
-        # ── Fast port reachability check (no SSL, raw TCP) ──────────
-        # This avoids the pymetasploit3 SSL handshake hang when msfrpcd
-        # is not listening. A refused/timed-out raw TCP connect is cheap.
+        # Read password from settings if not set
+        if not self._password:
+            from src.config.settings import MSF_RPC_PASSWORD
+            self._password = MSF_RPC_PASSWORD or "msfpassword"
+
+        # ── Fast port reachability check ─────────────────────────────
         try:
             with socket.create_connection((self._host, self._port), timeout=3.0):
-                pass  # port is open — proceed to full RPC auth below
-        except (OSError, socket.timeout) as _tcp_err:
+                pass
+        except (OSError, socket.timeout) as tcp_err:
             raise MetasploitConnectionError(
                 f"msfrpcd TCP port {self._host}:{self._port} is not open "
-                f"({_tcp_err}). Is msfrpcd running?"
-            ) from _tcp_err
+                f"({tcp_err}). Is msfrpcd running?"
+            ) from tcp_err
 
-        # ── Full RPC authentication (SSL) ────────────────────────────
-        _prev_timeout = socket.getdefaulttimeout()
-        socket.setdefaulttimeout(10)  # cap SSL handshake at 10 s
-        try:
-            from pymetasploit3.msfrpc import MsfRpcClient  # noqa: WPS433
-
-            self._client = MsfRpcClient(
-                self._password,
-                server=self._host,
-                port=self._port,
-                ssl=self._ssl,
-            )
-            logger.info(
-                f"Connected to msfrpcd at {self._host}:{self._port} (ssl={self._ssl})"
-            )
-            return True
-        except (ConnectionError, OSError, Exception) as exc:
-            # Attempt auto-fallback to opposite SSL mode if connection was reset/rejected
-            fallback_ssl = not self._ssl
+        # ── Auth via raw msgpack HTTP (try configured SSL mode, fallback if needed) ──
+        for ssl_mode in [self._ssl, not self._ssl]:
+            scheme = "https" if ssl_mode else "http"
+            self._rpc_url = f"{scheme}://{self._host}:{self._port}/api/"
             try:
-                from pymetasploit3.msfrpc import MsfRpcClient
-
-                self._client = MsfRpcClient(
-                    self._password,
-                    server=self._host,
-                    port=self._port,
-                    ssl=fallback_ssl,
-                )
-                self._ssl = fallback_ssl
-                logger.info(
-                    f"Connected to msfrpcd via SSL fallback (ssl={fallback_ssl})"
-                )
-                return True
+                resp = self._rpc_raw("auth.login", "msf", self._password)
+                result = resp.get(b"result", resp.get("result", ""))
+                if isinstance(result, bytes):
+                    result = result.decode()
+                if result == "success":
+                    token = resp.get(b"token", resp.get("token", b""))
+                    if isinstance(token, bytes):
+                        token = token.decode()
+                    self._ssl = ssl_mode
+                    self._client = {"token": token, "url": self._rpc_url}
+                    logger.info(
+                        "Connected to msfrpcd at %s:%d (ssl=%s) via raw msgpack",
+                        self._host, self._port, self._ssl,
+                    )
+                    return True
             except Exception:
-                pass
+                continue
 
-            logger.error(
-                f"Failed to connect to msfrpcd at {self._host}:{self._port}: {exc}"
-            )
-            raise MetasploitConnectionError(
-                f"Cannot reach msfrpcd at {self._host}:{self._port}"
-            ) from exc
-        finally:
-            socket.setdefaulttimeout(_prev_timeout)
+        raise MetasploitConnectionError(
+            f"Failed to authenticate with msfrpcd at {self._host}:{self._port}"
+        )
 
     def disconnect(self) -> None:
         """Release the RPC connection and clean up resources."""
         if self._client is not None:
             try:
-                self._client.logout()
-            except (AttributeError, OSError) as exc:
-                logger.debug(f"Non-critical error during disconnect: {exc}")
+                token = self._client.get("token", "")
+                if token:
+                    self._rpc_raw("auth.logout", token)
+            except Exception as exc:
+                logger.debug("Non-critical error during disconnect: %s", exc)
             finally:
                 self._client = None
                 logger.info("Disconnected from msfrpcd")
 
     def is_connected(self) -> bool:
-        """Check whether the RPC connection is alive.
-
-        Returns:
-            True if there is an active client connection.
-        """
+        """Check whether the RPC connection is alive."""
         return self._client is not None
+
+    # -- helpers ------------------------------------------------------------
+
+    def _rpc_raw(self, method: str, *args: Any) -> Any:
+        """Send a raw msgpack RPC request and return the decoded response.
+
+        Does NOT require a connected state — used for auth.login itself.
+        """
+        url = getattr(self, "_rpc_url",
+                      f"http://{self._host}:{self._port}/api/")
+        payload = msgpack.dumps([method] + list(args))
+        r = _requests.post(
+            url,
+            data=payload,
+            headers={"Content-Type": "binary/message-pack"},
+            timeout=30,
+            verify=False,
+        )
+        return msgpack.loads(r.content, raw=False, strict_map_key=False)
+
+    def _rpc(self, method: str, *args: Any) -> Any:
+        """Send an authenticated RPC request.
+
+        Raises:
+            MetasploitConnectionError: If not connected.
+        """
+        if self._client is None:
+            raise MetasploitConnectionError("Not connected to msfrpcd")
+        token = self._client["token"]
+        return self._rpc_raw(method, token, *args)
 
     # -- health -------------------------------------------------------------
 
     def health_check(self) -> bool:
-        """Verify the RPC daemon is responsive.
-
-        Returns:
-            True when the daemon responds to a version query.
-        """
+        """Verify the RPC daemon is responsive."""
         if not self.is_connected():
             logger.warning("health_check called without connection")
             return False
         try:
-            assert self._client is not None
-            _version = self._client.core.version
-            logger.debug(f"msfrpcd health OK: {_version}")
+            resp = self._rpc("core.version")
+            version = resp.get(b"version", resp.get("version", "?"))
+            logger.debug("msfrpcd health OK: %s", version)
             return True
-        except (OSError, AttributeError) as exc:
-            logger.error(f"msfrpcd health check failed: {exc}")
+        except Exception as exc:
+            logger.error("msfrpcd health check failed: %s", exc)
             return False
 
     # -- module operations --------------------------------------------------
 
     def validate_module_exists(self, module_path: str) -> bool:
-        """Check whether *module_path* exists in Metasploit.
-
-        Args:
-            module_path: Full module path, e.g.
-                ``exploit/windows/smb/ms17_010_eternalblue``.
-
-        Returns:
-            True if the module is found.
-
-        Raises:
-            MetasploitConnectionError: If not connected.
-        """
+        """Check whether *module_path* exists in Metasploit."""
         self._require_connection()
-        assert self._client is not None
         try:
-            self._client.modules.use("exploit", module_path)
+            # module.info raises an error dict if the module doesn't exist
+            parts = module_path.strip("/").split("/", 1)
+            mod_type = parts[0] if parts else "exploit"
+            mod_name = parts[1] if len(parts) > 1 else module_path
+            resp = self._rpc("module.info", mod_type, mod_name)
+            if isinstance(resp, dict):
+                err = resp.get(b"error", resp.get("error", False))
+                return not err
             return True
-        except (KeyError, TypeError):
+        except Exception:
             return False
 
     def search_modules(
@@ -312,9 +320,9 @@ class MetasploitRPCClient:
         """Search for modules matching *query*.
 
         Args:
-            query: Free-text search string (e.g. ``"eternalblue"``).
+            query: Free-text search string (e.g. ``"openssh"``).
             module_type: Module type filter — ``exploit``, ``auxiliary``,
-                ``post``, etc.
+                ``post``, etc. Pass empty string to return all types.
 
         Returns:
             A list of matching :class:`MsfModule` objects.
@@ -323,29 +331,39 @@ class MetasploitRPCClient:
             MetasploitConnectionError: If not connected.
         """
         self._require_connection()
-        assert self._client is not None
         results: list[MsfModule] = []
         try:
-            raw_modules = self._client.modules.search(query)
-            for mod in raw_modules:
-                mod_type = mod.get("type", "")
-                if module_type and mod_type != module_type:
+            raw = self._rpc("module.search", query)
+            # raw is a list of dicts with bytes keys
+            if not isinstance(raw, list):
+                raw = []
+            for mod in raw:
+                def _s(key: str) -> str:
+                    v = mod.get(key.encode(), mod.get(key, ""))
+                    return v.decode() if isinstance(v, bytes) else str(v)
+                mod_type_val = _s("type")
+                if module_type and mod_type_val != module_type:
+                    continue
+                fullname = _s("fullname")
+                if not fullname:
                     continue
                 results.append(
                     MsfModule(
-                        name=mod.get("name", ""),
-                        full_path=mod.get("fullname", ""),
-                        description=mod.get("description", ""),
-                        rank=mod.get("rank", ""),
-                        references=mod.get("references", []),
+                        name=_s("name"),
+                        full_path=fullname,
+                        description=_s("description"),
+                        rank=_s("rank"),
+                        references=[],
                     )
                 )
             logger.info(
-                f"Module search for '{query}' returned "
-                f"{len(results)} {module_type} result(s)"
+                "Module search for %r returned %d %s result(s)",
+                query, len(results), module_type or "any",
             )
-        except (OSError, AttributeError) as exc:
-            logger.error(f"Module search failed: {exc}")
+        except MetasploitConnectionError:
+            raise
+        except Exception as exc:
+            logger.error("Module search failed: %s", exc)
         return results
 
     # -- exploit execution --------------------------------------------------
@@ -355,65 +373,49 @@ class MetasploitRPCClient:
         module_path: str,
         options: ExploitOptions,
     ) -> ExploitExecutionResult:
-        """Execute an exploit module against the specified target.
-
-        Target validation is enforced **before** any exploit activity.
-
-        Args:
-            module_path: Full Metasploit module path.
-            options: :class:`ExploitOptions` with target / payload config.
-
-        Returns:
-            :class:`ExploitExecutionResult` describing the outcome.
-
-        Raises:
-            MetasploitConnectionError: If not connected.
-            MetasploitModuleError: If the module does not exist or
-                the target is outside allowed ranges.
-        """
+        """Execute an exploit module against the specified target."""
         self._require_connection()
-        assert self._client is not None
 
-        # --- target-scope gate ---------------------------------------------
+        # --- target-scope gate -------------------------------------------
         if not validate_target(options.rhosts):
-            msg = (
-                f"Target {options.rhosts} is OUTSIDE allowed "
-                f"ranges — exploit blocked"
-            )
-            logger.critical(f"SECURITY: {msg}")
+            msg = f"Target {options.rhosts} is OUTSIDE allowed ranges — exploit blocked"
+            logger.critical("SECURITY: %s", msg)
             raise MetasploitModuleError(msg)
 
-        # --- module lookup -------------------------------------------------
-        try:
-            exploit = self._client.modules.use("exploit", module_path)
-        except (KeyError, TypeError) as exc:
-            raise MetasploitModuleError(f"Module not found: {module_path}") from exc
+        # --- validate module exists --------------------------------------
+        if not self.validate_module_exists(module_path):
+            raise MetasploitModuleError(f"Module not found: {module_path}")
 
-        # --- set options ---------------------------------------------------
-        exploit["RHOSTS"] = options.rhosts
-        exploit["RPORT"] = options.rport
-        exploit["PAYLOAD"] = options.payload
-        exploit["LHOST"] = options.lhost
-        exploit["LPORT"] = options.lport
-        for key, value in options.extra_options.items():
-            exploit[key] = value
+        # --- build options dict ------------------------------------------
+        opts: dict[str, Any] = {
+            "RHOSTS": options.rhosts,
+            "RPORT": str(options.rport),
+            "PAYLOAD": options.payload,
+            "LHOST": options.lhost,
+            "LPORT": str(options.lport),
+        }
+        opts.update(options.extra_options)
 
         logger.warning(
-            f"Executing exploit {module_path} against "
-            f"{options.rhosts}:{options.rport}"
+            "Executing exploit %s against %s:%d",
+            module_path, options.rhosts, options.rport,
         )
 
-        # --- fire ----------------------------------------------------------
+        # --- fire --------------------------------------------------------
+        parts = module_path.strip("/").split("/", 1)
+        mod_type = parts[0] if parts else "exploit"
+        mod_name = parts[1] if len(parts) > 1 else module_path
+
         start = time.monotonic()
         try:
-            result = exploit.execute(payload=options.payload)
+            resp = self._rpc("module.execute", mod_type, mod_name, opts)
             elapsed_ms = (time.monotonic() - start) * 1000
-            logger.info(f"Exploit execution completed in " f"{elapsed_ms:.0f}ms")
-        except (OSError, RuntimeError) as exc:
+            logger.info("Exploit execution completed in %.0fms", elapsed_ms)
+        except MetasploitConnectionError:
+            raise
+        except Exception as exc:
             elapsed_ms = (time.monotonic() - start) * 1000
-            logger.error(
-                f"Exploit execution failed after " f"{elapsed_ms:.0f}ms: {exc}"
-            )
+            logger.error("Exploit execution failed after %.0fms: %s", elapsed_ms, exc)
             return ExploitExecutionResult(
                 success=False,
                 session_id=None,
@@ -422,26 +424,39 @@ class MetasploitRPCClient:
                 error_message=str(exc),
             )
 
-        # --- evaluate result -----------------------------------------------
-        job_id = result.get("job_id")
+        # Check for immediate errors in response
+        if isinstance(resp, dict):
+            err = resp.get(b"error", resp.get("error", False))
+            if err:
+                err_msg = resp.get(b"error_message", resp.get("error_message", b"Unknown"))
+                if isinstance(err_msg, bytes):
+                    err_msg = err_msg.decode()
+                return ExploitExecutionResult(
+                    success=False,
+                    session_id=None,
+                    module_used=module_path,
+                    target=options.rhosts,
+                    error_message=str(err_msg),
+                )
+
+        # --- poll for session --------------------------------------------
         session_id = self._wait_for_session(options.rhosts, timeout=30)
 
         if session_id is not None:
             logger.critical(
-                f"Exploit SUCCESS — session {session_id} "
-                f"on {options.rhosts} via {module_path}"
+                "Exploit SUCCESS — session %d on %s via %s",
+                session_id, options.rhosts, module_path,
             )
             return ExploitExecutionResult(
                 success=True,
                 session_id=session_id,
                 module_used=module_path,
                 target=options.rhosts,
-                raw_output=str(result),
+                raw_output=str(resp),
             )
 
         logger.warning(
-            f"Exploit completed (job {job_id}) but no "
-            f"session was created on {options.rhosts}"
+            "Exploit completed but no session on %s", options.rhosts,
         )
         return ExploitExecutionResult(
             success=False,
@@ -449,39 +464,38 @@ class MetasploitRPCClient:
             module_used=module_path,
             target=options.rhosts,
             error_message="No session established",
-            raw_output=str(result),
+            raw_output=str(resp),
         )
 
     # -- session operations -------------------------------------------------
 
     def list_sessions(self) -> list[SessionInfo]:
-        """List all active Metasploit sessions.
-
-        Returns:
-            A list of :class:`SessionInfo` objects.
-
-        Raises:
-            MetasploitConnectionError: If not connected.
-        """
+        """List all active Metasploit sessions."""
         self._require_connection()
-        assert self._client is not None
         sessions: list[SessionInfo] = []
         try:
-            raw = self._client.sessions.list
-            for sid, info in raw.items():
-                sessions.append(
-                    SessionInfo(
-                        session_id=int(sid),
-                        session_type=info.get("type", ""),
-                        target_host=info.get("target_host", ""),
-                        username=info.get("username", ""),
-                        platform=info.get("platform", ""),
-                        via_exploit=info.get("via_exploit", ""),
-                    )
-                )
-            logger.info(f"Found {len(sessions)} active session(s)")
-        except (OSError, AttributeError) as exc:
-            logger.error(f"Failed to list sessions: {exc}")
+            raw = self._rpc("session.list")
+            if isinstance(raw, dict):
+                for sid, info in raw.items():
+                    if isinstance(info, dict):
+                        def _si(key: str) -> str:
+                            v = info.get(key.encode(), info.get(key, ""))
+                            return v.decode() if isinstance(v, bytes) else str(v)
+                        sessions.append(
+                            SessionInfo(
+                                session_id=int(sid),
+                                session_type=_si("type"),
+                                target_host=_si("target_host"),
+                                username=_si("username"),
+                                platform=_si("platform"),
+                                via_exploit=_si("via_exploit"),
+                            )
+                        )
+            logger.info("Found %d active session(s)", len(sessions))
+        except MetasploitConnectionError:
+            raise
+        except Exception as exc:
+            logger.error("Failed to list sessions: %s", exc)
         return sessions
 
     def run_session_command(
@@ -489,39 +503,107 @@ class MetasploitRPCClient:
         session_id: int,
         command: str,
     ) -> str:
-        """Execute a command inside an active session.
-
-        Args:
-            session_id: Numeric session identifier.
-            command: Shell / meterpreter command to run.
-
-        Returns:
-            The command output as a string.
-
-        Raises:
-            MetasploitConnectionError: If not connected.
-            MetasploitRPCError: On session interaction failure.
-        """
+        """Execute a command inside an active session."""
         self._require_connection()
-        assert self._client is not None
-        logger.info(f"Running command in session {session_id}: " f"{command!r}")
+        logger.info("Running command in session %d: %r", session_id, command)
         try:
-            shell = self._client.sessions.session(str(session_id))
-            shell.write(command)
-            # Short delay for output to arrive
+            resp = self._rpc("session.shell_write", str(session_id), command + "\n")
             time.sleep(1)
-            output: str = shell.read()
-            logger.debug(f"Session {session_id} output length: " f"{len(output)} chars")
+            read_resp = self._rpc("session.shell_read", str(session_id))
+            data = read_resp.get(b"data", read_resp.get("data", b""))
+            output = data.decode() if isinstance(data, bytes) else str(data)
+            logger.debug("Session %d output: %d chars", session_id, len(output))
             return output
-        except (OSError, KeyError, AttributeError) as exc:
+        except MetasploitConnectionError:
+            raise
+        except Exception as exc:
             raise MetasploitRPCError(
-                f"Failed to run command in session " f"{session_id}: {exc}"
+                f"Failed to run command in session {session_id}: {exc}"
             ) from exc
 
     # -- private helpers ----------------------------------------------------
 
+    def _try_start_msfrpcd(self) -> bool:
+        """Attempt to start msfrpcd as a background daemon.
+
+        Uses the configured credentials. Waits up to 30 s for the port
+        to become reachable. Returns True if the daemon is ready.
+        """
+        logger.info("Attempting to auto-start msfrpcd daemon...")
+        try:
+            cmd = [
+                "msfrpcd",
+                "-U", "msf",
+                "-P", self._password or "msfpassword",
+                "-a", self._host,
+                "-p", str(self._port),
+                "-S",  # disable SSL (match MSF_RPC_SSL=false in .env)
+                "-f",  # run in foreground (we background via subprocess)
+            ]
+            # Use sudo only if available and needed; suppress errors silently
+            proc = subprocess.Popen(
+                cmd,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True,
+            )
+            logger.info("msfrpcd started (PID %d) — waiting for port...", proc.pid)
+        except FileNotFoundError:
+            logger.error("msfrpcd binary not found — is Metasploit installed?")
+            return False
+        except Exception as exc:
+            logger.error("Failed to start msfrpcd: %s", exc)
+            return False
+
+        # Wait up to 30 s for the port to open
+        deadline = time.monotonic() + 30
+        while time.monotonic() < deadline:
+            try:
+                with socket.create_connection((self._host, self._port), timeout=2.0):
+                    logger.info("msfrpcd port is open — daemon ready")
+                    return True
+            except (OSError, socket.timeout):
+                time.sleep(2)
+
+        logger.error("msfrpcd did not become ready within 30 s")
+        return False
+
+    def _auto_connect(self) -> None:
+        """Connect to msfrpcd, starting it first if necessary.
+
+        Called by ``_require_connection()`` so that any method that needs
+        a live connection will transparently establish one rather than
+        raising an error on first use.
+        """
+        if self.is_connected():
+            return
+
+        # First attempt: connect to an already-running daemon
+        try:
+            self.connect()
+            return
+        except MetasploitConnectionError:
+            logger.warning(
+                "msfrpcd not reachable at %s:%d — attempting auto-start.",
+                self._host,
+                self._port,
+            )
+
+        # Second attempt: start daemon then connect
+        if self._try_start_msfrpcd():
+            try:
+                self.connect()
+                return
+            except MetasploitConnectionError as exc:
+                logger.error("Still cannot connect after auto-start: %s", exc)
+
+        raise MetasploitConnectionError(
+            f"Cannot reach msfrpcd at {self._host}:{self._port} even after "
+            "auto-start attempt. Run 'sudo msfrpcd -U msf -P <pass> -a 127.0.0.1 -p 55553 -S -f &' manually."
+        )
+
     def _require_connection(self) -> None:
-        """Raise if the client is not connected."""
+        """Ensure a live connection exists, raising if not connected."""
         if not self.is_connected():
             raise MetasploitConnectionError(
                 "Not connected to msfrpcd — call connect() first"
@@ -532,24 +614,19 @@ class MetasploitRPCClient:
         target: str,
         timeout: int = 30,
     ) -> int | None:
-        """Poll for a new session on *target* up to *timeout* seconds.
-
-        Args:
-            target: The target IP to look for.
-            timeout: Maximum seconds to wait.
-
-        Returns:
-            The session ID, or ``None`` if no session appeared.
-        """
+        """Poll for a new session on *target* up to *timeout* seconds."""
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             try:
-                assert self._client is not None
-                raw = self._client.sessions.list
-                for sid, info in raw.items():
-                    if info.get("target_host") == target:
-                        return int(sid)
-            except (OSError, AttributeError):
+                raw = self._rpc("session.list")
+                if isinstance(raw, dict):
+                    for sid, info in raw.items():
+                        host = info.get(b"target_host", info.get("target_host", ""))
+                        if isinstance(host, bytes):
+                            host = host.decode()
+                        if host == target:
+                            return int(sid)
+            except Exception:
                 pass
             time.sleep(2)
         return None

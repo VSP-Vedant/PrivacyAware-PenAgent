@@ -341,10 +341,13 @@ class ReconAgent:
         services: list[ServiceInfo],
     ) -> None:
         """Write CVE candidates to the graph and link to services."""
+        inserted = 0
         for candidate in candidates:
             cve_node = candidate.to_cve_node()
             node_id = cve_node.node_id
             self._graph.graph.add_node(node_id, **cve_node.to_dict())
+            inserted += 1
+            logger.debug("Inserted CVE node: %s", node_id)
 
             # Link CVE to all services that could be affected
             # We link based on the CVE description containing the service name
@@ -360,4 +363,13 @@ class ReconAgent:
                         )
                         break
 
+        logger.info(
+            "CVE graph population: %d candidate(s) -> %d node(s) inserted",
+            len(candidates),
+            inserted,
+        )
+        if inserted > 0:
+            print(f"[RECON] CVE mapping: {inserted} CVE node(s) written to attack graph")
+
         self._graph.persistence.save_graph(self._graph.graph)
+

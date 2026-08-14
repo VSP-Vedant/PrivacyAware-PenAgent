@@ -259,6 +259,8 @@ class GobusterWrapper:
             self._wordlist,
             "-t",
             str(self._threads),
+            "--timeout",
+            "5s",
             "-q",
             "-b",
             "302,301",  # blacklist redirect codes from virtual-host targets

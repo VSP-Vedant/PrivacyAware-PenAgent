@@ -12,7 +12,12 @@ from typing import Any
 
 import requests
 
-from src.config.settings import ANTHROPIC_API_KEY, OLLAMA_HOST, OPENAI_API_KEY
+from src.config.settings import (
+    ANTHROPIC_API_KEY,
+    OLLAMA_HOST,
+    OLLAMA_MODEL_LOCAL,
+    OPENAI_API_KEY,
+)
 from src.router.llm_router import RoutingDecision
 
 logger = logging.getLogger(__name__)
@@ -36,10 +41,18 @@ class LLMClient:
             return self._call_ollama(decision.model, prompt)
 
     def _call_openai(self, model: str, prompt: str) -> str:
-        """Call OpenAI Chat Completions API."""
+        """Call OpenAI Chat Completions API.
+
+        Falls back to local Ollama automatically when OPENAI_API_KEY is not set,
+        so exploit analysis always runs even without a cloud API key.
+        """
         if not OPENAI_API_KEY:
-            logger.warning("OPENAI_API_KEY not set. Returning mock response.")
-            return self._mock_response()
+            logger.warning(
+                "OPENAI_API_KEY not set — falling back to local Ollama (%s) "
+                "instead of returning an empty mock response.",
+                OLLAMA_MODEL_LOCAL,
+            )
+            return self._call_ollama(OLLAMA_MODEL_LOCAL, prompt)
 
         logger.info("Calling OpenAI API with model %s", model)
         headers = {
@@ -61,14 +74,20 @@ class LLMClient:
             resp.raise_for_status()
             return str(resp.json()["choices"][0]["message"]["content"])
         except Exception as e:
-            logger.error("OpenAI API call failed: %s", e)
-            return self._mock_response()
+            logger.error("OpenAI API call failed: %s — falling back to Ollama", e)
+            return self._call_ollama(OLLAMA_MODEL_LOCAL, prompt)
 
     def _call_anthropic(self, model: str, prompt: str) -> str:
-        """Call Anthropic Messages API."""
+        """Call Anthropic Messages API.
+
+        Falls back to local Ollama automatically when ANTHROPIC_API_KEY is not set.
+        """
         if not ANTHROPIC_API_KEY:
-            logger.warning("ANTHROPIC_API_KEY not set. Returning mock response.")
-            return self._mock_response()
+            logger.warning(
+                "ANTHROPIC_API_KEY not set — falling back to local Ollama (%s).",
+                OLLAMA_MODEL_LOCAL,
+            )
+            return self._call_ollama(OLLAMA_MODEL_LOCAL, prompt)
 
         logger.info("Calling Anthropic API with model %s", model)
         headers = {
@@ -95,7 +114,12 @@ class LLMClient:
             return self._mock_response()
 
     def _call_ollama(self, model: str, prompt: str) -> str:
-        """Call local Ollama API with enforced JSON output."""
+        """Call local Ollama API with enforced JSON output.
+
+        Uses a 45 s read timeout (increased to 90 s on second attempt with a
+        lighter model) so the orchestrator doesn't block for 3 minutes when the
+        requested model is too large for the CPU.
+        """
         logger.info("Calling local Ollama with model %s", model)
         url = f"{OLLAMA_HOST}/api/generate"
         # Prepend a strict JSON-only instruction so the model does not wrap
@@ -111,18 +135,27 @@ class LLMClient:
             "stream": False,
             "format": "json",  # Ollama native JSON mode (>=0.1.9)
         }
-        try:
-            # 180s: allows cold model load on CPU-only VMs
-            resp = requests.post(url, json=data, timeout=180)
-            resp.raise_for_status()
-            raw = str(resp.json()["response"]).strip()
-            # Strip any accidental markdown fences the model added
-            if raw.startswith("```"):
-                raw = raw.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
-            return raw
-        except Exception as e:
-            logger.error("Ollama API call failed: %s", e)
-            return self._mock_response()
+        # Try requested model first (45 s), then fall back to llama3:8b (90 s)
+        for attempt_model, timeout in [(model, 45), ("llama3:8b", 90)]:
+            data["model"] = attempt_model
+            try:
+                resp = requests.post(url, json=data, timeout=timeout)
+                resp.raise_for_status()
+                raw = str(resp.json()["response"]).strip()
+                # Strip any accidental markdown fences the model added
+                if raw.startswith("```"):
+                    raw = raw.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+                return raw
+            except Exception as e:
+                logger.warning(
+                    "Ollama call failed with model %s (timeout=%ds): %s",
+                    attempt_model, timeout, e,
+                )
+                if attempt_model == model and attempt_model != "llama3:8b":
+                    logger.info("Retrying with fallback model llama3:8b")
+                    continue
+                # Both attempts failed — return empty fallback so SearchSploit runs
+                return self._mock_response()
 
     def _mock_response(
         self, target_ip: str = "", port: int = 0, service: str = ""

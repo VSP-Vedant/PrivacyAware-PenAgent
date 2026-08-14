@@ -70,17 +70,17 @@ class CostTracker:
         Returns:
             The calculated cost of this run in USD.
         """
-        # Determine pricing rate (default to gpt-4o if cloud model is unknown)
+        # Determine pricing rate (default to local (0.0, 0.0) unless matching known cloud model prefixes)
         pricing = MODEL_PRICING.get(model)
         if pricing is None:
-            if any(k in model.lower() for k in ["llama", "mistral", "local"]):
-                pricing = (0.0, 0.0)
-            else:
+            if model.startswith(("gpt-", "o1", "o3", "claude-")):
                 pricing = MODEL_PRICING["gpt-4o"]
                 logger.warning(
                     f"Unknown cloud model '{model}', using gpt-4o rate",
                     extra={"model": model},
                 )
+            else:
+                pricing = (0.0, 0.0)
 
         input_rate, output_rate = pricing
         run_cost = (input_tokens / 1_000_000 * input_rate) + (

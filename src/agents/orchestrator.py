@@ -22,6 +22,7 @@ Week 19–22 enhancements (Vedant, Member C):
 from __future__ import annotations
 
 import json
+import os
 from typing import Any, Literal, cast
 
 from langgraph.graph import END, StateGraph
@@ -36,6 +37,9 @@ from src.config.settings import (
     MSF_RPC_PASSWORD,
     MSF_RPC_PORT,
     MSF_RPC_SSL,
+    OPENAI_API_KEY,
+    ANTHROPIC_API_KEY,
+    OLLAMA_MODEL_LOCAL,
 )
 from src.evaluation.metrics import RunMetrics, compute_metrics, save_run_metrics
 from src.reporting.report_generator import ReportGenerator
@@ -251,8 +255,19 @@ def analyze_graph_node(state: PenTestState) -> PenTestState:
     prompt_tokens = len(prompt) // 4
     response_tokens = len(llm_response) // 4
     if decision.route == "CLOUD":
-        _cost_tracker.add_run(decision.model, prompt_tokens, response_tokens)
+        # If no cloud keys exist, the invocation actually executed locally on Ollama at $0 cost
+        has_cloud_key = bool(
+            os.getenv("OPENAI_API_KEY") or os.getenv("ANTHROPIC_API_KEY")
+        )
+        actual_model = (
+            decision.model
+            if has_cloud_key
+            else (OLLAMA_MODEL_LOCAL or "llama3:8b")
+        )
+        _cost_tracker.add_run(actual_model, prompt_tokens, response_tokens)
         state["cloud_tokens_used"] += prompt_tokens + response_tokens
+    else:
+        _cost_tracker.add_run(decision.model, prompt_tokens, response_tokens)
 
     # ── Parse LLM response into candidates ───────────────────────
     candidates: list[dict[str, Any]] = []

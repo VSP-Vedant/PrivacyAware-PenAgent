@@ -31,6 +31,12 @@ from src.agents.exploit_agent import ExploitAgent, ExploitCandidate
 from src.agents.recon_agent import ReconAgent
 from src.agents.verification_agent import VerificationAgent
 from src.config.prompts import get_prompt
+from src.config.settings import (
+    MSF_RPC_HOST,
+    MSF_RPC_PASSWORD,
+    MSF_RPC_PORT,
+    MSF_RPC_SSL,
+)
 from src.evaluation.metrics import RunMetrics, compute_metrics, save_run_metrics
 from src.reporting.report_generator import ReportGenerator
 from src.router.complexity import TaskType
@@ -51,6 +57,46 @@ _cost_tracker = CostTracker()
 
 # Maximum exploit attempts before forcing report (safety guard)
 _MAX_EXPLOIT_ATTEMPTS = 9
+
+
+def _get_msf_client() -> MetasploitRPCClient | None:
+    """Attempt to connect to msfrpcd using settings from .env.
+
+    Returns a connected :class:`MetasploitRPCClient` on success,
+    or ``None`` when msfrpcd is unreachable so callers can fall back
+    gracefully to SearchSploit discovery.
+    """
+    client = MetasploitRPCClient(
+        host=MSF_RPC_HOST,
+        port=MSF_RPC_PORT,
+        password=MSF_RPC_PASSWORD,
+        ssl=MSF_RPC_SSL,
+    )
+    try:
+        connected = client.connect()
+        if connected:
+            logger.info(
+                "Connected to msfrpcd at %s:%d (ssl=%s)",
+                MSF_RPC_HOST,
+                MSF_RPC_PORT,
+                MSF_RPC_SSL,
+            )
+            return client
+        logger.warning(
+            "msfrpcd at %s:%d is reachable but connect() returned False — "
+            "check password/SSL settings. Falling back to SearchSploit.",
+            MSF_RPC_HOST,
+            MSF_RPC_PORT,
+        )
+    except Exception as exc:
+        logger.warning(
+            "msfrpcd unavailable at %s:%d (%s) — "
+            "ExploitAgent will fall back to SearchSploit discovery.",
+            MSF_RPC_HOST,
+            MSF_RPC_PORT,
+            exc,
+        )
+    return None
 
 
 def recon_node(state: PenTestState) -> PenTestState:
@@ -97,10 +143,23 @@ def analyze_graph_node(state: PenTestState) -> PenTestState:
     Uses the LLMRouter to decide whether to route the exploit selection
     task to a local (Ollama) or cloud (OpenAI/Anthropic) model, then
     invokes the LLMClient to generate module recommendations.
+
+    In ``recon-only`` mode this node is a no-op: it logs and returns
+    immediately without touching the LLM, preventing Ollama timeouts
+    on every replan iteration.
     """
     logger.info("Executing analyze_graph node")
     print("[ANALYZE] Querying attack graph for exploitable services ...")
     ag: AttackGraph = state["attack_graph"]
+
+    # ── recon-only short-circuit ──────────────────────────────────
+    # No LLM call needed: the conditional edge `has_exploitable` will
+    # route directly to `report` after this node returns.
+    if state.get("mode") == "recon-only":
+        logger.info("recon-only mode — skipping LLM analysis")
+        print("[ANALYZE] recon-only mode — skipping LLM analysis.")
+        state["step_count"] += 1
+        return state
 
     # Query exploitable services from the attack graph
     exploitable = ag.get_exploitable_services()
@@ -290,8 +349,9 @@ def exploit_node(state: PenTestState) -> PenTestState:
         llm_candidates = None
 
     # Run the real Exploit Agent
-    # msf_client is passed as None so ExploitAgent initializes MetasploitRPCClient lazily
-    agent = ExploitAgent(attack_graph=ag, msf_client=None)
+    # Attempt to connect to msfrpcd; falls back to None (SearchSploit) if unreachable.
+    msf_client = _get_msf_client()
+    agent = ExploitAgent(attack_graph=ag, msf_client=msf_client)
     try:
         result = agent.run(state["target"], candidates=llm_candidates)
         # Append attempts to state
@@ -324,9 +384,11 @@ def verify_node(state: PenTestState) -> PenTestState:
     last_attempt = state["exploit_attempts"][-1]
 
     # Use the full VerificationAgent (not the stub)
+    # Reuse an msfrpcd connection for session verification if available.
+    msf_client = _get_msf_client()
     agent = VerificationAgent(
         attack_graph=state["attack_graph"],
-        msf_client=MetasploitRPCClient(),
+        msf_client=msf_client,
     )
     result = agent.verify_attempt(last_attempt)
 
@@ -475,12 +537,19 @@ def check_success(state: PenTestState) -> Literal["report", "replan"]:
 
     Routes to 'report' when:
     - The last attempt succeeded
+    - Mode is recon-only (no exploit phase intended)
     - The exploit attempt budget is exhausted (max 9 attempts)
     - The step budget is exceeded
-    - No new exploit attempts were made in the last iteration (empty loop guard)
+    - All recent attempts share the same unrecoverable error (loop guard)
 
     Routes to 'replan' when the attempt failed and budget remains.
     """
+    # recon-only: exploit node should never run, but if it does, stop immediately.
+    if state.get("mode") == "recon-only":
+        logger.info("recon-only mode — routing to report from check_success")
+        state["termination_reason"] = "recon_only_completed"
+        return "report"
+
     if not state["exploit_attempts"]:
         state["termination_reason"] = "no_attempts_made"
         return "report"
@@ -508,21 +577,19 @@ def check_success(state: PenTestState) -> Literal["report", "replan"]:
         state["termination_reason"] = "exploit_attempt_cap_reached"
         return "report"
 
-    # Empty-loop guard: if the last exploit node added no attempts
-    # (all candidates were hallucinations or no candidates existed)
-    # AND exploit_candidates is empty, there is nothing left to try.
-    # Route to report instead of spinning forever.
-    if not state.get("exploit_candidates") and last.error_type in (
-        "module_not_found",
-        "connection_refused",
-    ):
-        # Count how many consecutive module_not_found failures we have had.
-        recent = state["exploit_attempts"][-min(3, len(state["exploit_attempts"])) :]
-        all_not_found = all(a.error_type == "module_not_found" for a in recent)
-        if all_not_found:
+    # ── Unrecoverable-error loop guard ───────────────────────────
+    # If no new LLM candidates exist AND the last N attempts all share
+    # the same terminal error (module_not_found OR connection_refused),
+    # replanning cannot help — break the loop and report.
+    _TERMINAL_ERRORS = ("module_not_found", "connection_refused")
+    if not state.get("exploit_candidates") and last.error_type in _TERMINAL_ERRORS:
+        recent = state["exploit_attempts"][-min(3, len(state["exploit_attempts"])):]
+        all_terminal = all(a.error_type in _TERMINAL_ERRORS for a in recent)
+        if all_terminal:
             logger.warning(
-                "All recent attempts were module_not_found with no new candidates "
-                "— routing to report to avoid infinite loop."
+                "All recent attempts ended with unrecoverable errors (%s) "
+                "and no new candidates — routing to report to break loop.",
+                ", ".join(a.error_type or "?" for a in recent),
             )
             state["termination_reason"] = "no_valid_modules_found"
             return "report"

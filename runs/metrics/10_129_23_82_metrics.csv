@@ -1,2 +1,2 @@
 run_id,target,success,progress_rate,milestones_hit,ttfs_seconds,step_count,cloud_api_calls,cloud_cost_usd,exploit_attempts,successful_exploits,exploit_redundancy_rate,hosts_discovered,services_discovered,cves_mapped,run_start_ts,run_end_ts,duration_seconds
-10_10_10_10,10.10.10.10,False,0.0,[],,0,0,0.05,0,0,0.0,0,0,0,1786733380.2674801,1786733380.268136,0.0006558895111083984
+10_129_23_82,10.129.23.82,False,0.75,"[""recon_done"", ""cve_mapped"", ""exploit_attempted""]",,4,0,0.0,1,0,0.0,1,3,2,1786624252.7624857,1786624876.251224,623.4887382984161

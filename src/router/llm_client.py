@@ -114,12 +114,7 @@ class LLMClient:
             return self._mock_response()
 
     def _call_ollama(self, model: str, prompt: str) -> str:
-        """Call local Ollama API with enforced JSON output.
-
-        Uses a 45 s read timeout (increased to 90 s on second attempt with a
-        lighter model) so the orchestrator doesn't block for 3 minutes when the
-        requested model is too large for the CPU.
-        """
+        """Call local Ollama API with enforced JSON output."""
         logger.info("Calling local Ollama with model %s", model)
         url = f"{OLLAMA_HOST}/api/generate"
         # Prepend a strict JSON-only instruction so the model does not wrap
@@ -135,8 +130,12 @@ class LLMClient:
             "stream": False,
             "format": "json",  # Ollama native JSON mode (>=0.1.9)
         }
-        # Try requested model first (45 s), then fall back to llama3:8b (90 s)
-        for attempt_model, timeout in [(model, 45), ("llama3:8b", 90)]:
+        # Try requested model first, then fallback model
+        models_to_try = [(model, 45)]
+        if model != "llama3:8b":
+            models_to_try.append(("llama3:8b", 60))
+
+        for attempt_model, timeout in models_to_try:
             data["model"] = attempt_model
             try:
                 resp = requests.post(url, json=data, timeout=timeout)
@@ -149,13 +148,13 @@ class LLMClient:
             except Exception as e:
                 logger.warning(
                     "Ollama call failed with model %s (timeout=%ds): %s",
-                    attempt_model, timeout, e,
+                    attempt_model,
+                    timeout,
+                    e,
                 )
-                if attempt_model == model and attempt_model != "llama3:8b":
-                    logger.info("Retrying with fallback model llama3:8b")
-                    continue
-                # Both attempts failed — return empty fallback so SearchSploit runs
-                return self._mock_response()
+                continue
+
+        return self._mock_response()
 
     def _mock_response(
         self, target_ip: str = "", port: int = 0, service: str = ""

@@ -69,9 +69,14 @@ class LLMRouter:
         self.sensitivity_threshold = float(os.getenv("SENSITIVITY_THRESHOLD", "0.6"))
         self.complexity_threshold = float(os.getenv("COMPLEXITY_THRESHOLD", "0.7"))
 
-        # Default model assignments
+        # Default model assignments — LOCAL_MODEL (default: llama3:8b)
         self.local_model = os.getenv("LOCAL_MODEL", "llama3:8b")
         self.cloud_model = os.getenv("CLOUD_MODEL", "gpt-4o")
+
+        # Detect whether any cloud API key is configured
+        self._cloud_available = bool(
+            os.getenv("OPENAI_API_KEY") or os.getenv("ANTHROPIC_API_KEY")
+        )
 
         logger.debug(
             "LLM Router configured",
@@ -80,6 +85,7 @@ class LLMRouter:
                 "complexity_threshold": self.complexity_threshold,
                 "local_model": self.local_model,
                 "cloud_model": self.cloud_model,
+                "cloud_available": self._cloud_available,
             },
         )
 

@@ -147,6 +147,17 @@ class GobusterWrapper:
         elapsed = time.monotonic() - start
 
         if proc.returncode != 0 and not proc.stdout:
+            stderr_lower = proc.stderr.lower()
+            # Wildcard detection causes gobuster to exit non-zero with no results.
+            # With --wildcard this should no longer happen, but guard defensively.
+            if "wildcard" in stderr_lower or "non existing" in stderr_lower:
+                logger.warning(
+                    "Gobuster exited with code %d due to wildcard response "
+                    "(--wildcard flag should have suppressed this): %s",
+                    proc.returncode,
+                    proc.stderr.strip()[:300],
+                )
+                return GobusterResult(target_url=target_url)
             raise GobusterError(
                 f"Gobuster exited with code {proc.returncode}: "
                 f"{proc.stderr.strip()}"
@@ -264,6 +275,7 @@ class GobusterWrapper:
             "-q",
             "-b",
             "302,301",  # blacklist redirect codes from virtual-host targets
+            "--force",  # continue scanning even when wildcard prechecks fail (gobuster v3 flag)
         ]
         if extensions:
             cmd.extend(["-x", extensions])

@@ -346,4 +346,4 @@ class PenTestState(TypedDict):
     end_time: str
     termination_reason: str
     nmap_scan_type: str
-    mode: str
+    mode: str  # Run mode: 'full' or 'recon-only'

@@ -206,6 +206,45 @@ _KNOWN_CVES: list[dict[str, Any]] = [
             },
         ],
     },
+    # Craft CMS
+    {
+        "service_pattern": r"^https?$",
+        "product_pattern": r"Craft\s*CMS",
+        "version_pattern": r".*",
+        "cves": [
+            {
+                "cve_id": "CVE-2023-41892",
+                "cvss_score": 9.8,
+                "description": "Craft CMS before 4.4.15 unauthenticated Remote Code Execution",
+            },
+        ],
+    },
+    # WordPress
+    {
+        "service_pattern": r"^https?$",
+        "product_pattern": r"WordPress",
+        "version_pattern": r".*",
+        "cves": [
+            {
+                "cve_id": "CVE-2018-6389",
+                "cvss_score": 7.5,
+                "description": "WordPress load-scripts.php denial of service",
+            },
+        ],
+    },
+    # Drupal
+    {
+        "service_pattern": r"^https?$",
+        "product_pattern": r"Drupal",
+        "version_pattern": r".*",
+        "cves": [
+            {
+                "cve_id": "CVE-2018-7600",
+                "cvss_score": 9.8,
+                "description": "Drupalgeddon2 - Drupal 7.x/8.x Remote Code Execution",
+            },
+        ],
+    },
 ]
 
 

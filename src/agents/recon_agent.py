@@ -110,6 +110,9 @@ class ReconAgent:
         result.os_guess = nmap_result.os_guess
         result.scan_duration_seconds = nmap_result.scan_duration_seconds
 
+        # ── Step 1.5: Web fingerprinting & VHOST discovery ──────
+        self._fingerprint_web_services(target, nmap_result.services)
+
         # ── Step 2: Populate attack graph with hosts & services ──
         self._populate_graph_from_nmap(nmap_result, target)
 
@@ -254,6 +257,61 @@ class ReconAgent:
             len(services),
         )
         return all_candidates
+
+    def _fingerprint_web_services(
+        self,
+        target: str,
+        services: list[ServiceInfo],
+    ) -> None:
+        """Probe HTTP/HTTPS services for virtual hosts and web application frameworks."""
+        import re
+        from urllib.parse import urlparse
+        import requests
+
+        for svc in services:
+            if svc.service not in _HTTP_SERVICE_NAMES and svc.port not in (80, 443, 8080, 8443):
+                continue
+            scheme = "https" if svc.service in {"https", "https-alt"} or svc.port == 443 else "http"
+            url = f"{scheme}://{target}:{svc.port}/"
+            vhost = ""
+            detected_app = ""
+
+            try:
+                # 1. Check for redirects / VHOST
+                resp = requests.get(url, timeout=0.5, allow_redirects=False)
+                loc = resp.headers.get("Location", "")
+                if loc:
+                    parsed = urlparse(loc)
+                    if parsed.hostname and not re.match(r"^\d+\.\d+\.\d+\.\d+$", parsed.hostname):
+                        vhost = parsed.hostname
+
+                # 2. Probe with Host header or follow redirect
+                headers = {"Host": vhost} if vhost else {}
+                resp2 = requests.get(url, headers=headers, timeout=0.5, allow_redirects=True)
+                body_lower = resp2.text.lower()
+                cookies_lower = " ".join(resp2.cookies.keys()).lower()
+                headers_lower = " ".join(f"{k}:{v}" for k, v in resp2.headers.items()).lower()
+
+                if "craft" in body_lower or "craft" in cookies_lower or "craft_csrf_token" in cookies_lower:
+                    detected_app = "Craft CMS"
+                elif "wp-content" in body_lower or "wordpress" in body_lower or "wp-includes" in body_lower:
+                    detected_app = "WordPress"
+                elif "drupal" in body_lower or "drupal" in headers_lower:
+                    detected_app = "Drupal"
+                elif "joomla" in body_lower:
+                    detected_app = "Joomla"
+
+                if detected_app:
+                    logger.info("Web fingerprinting discovered application '%s' on %s", detected_app, url)
+                    svc.product = detected_app
+                if vhost:
+                    logger.info("Web fingerprinting discovered virtual host '%s' for %s", vhost, target)
+                    if not svc.extra_info:
+                        svc.extra_info = f"vhost={vhost}"
+                    elif "vhost=" not in svc.extra_info:
+                        svc.extra_info = f"{svc.extra_info} vhost={vhost}"
+            except Exception as exc:
+                logger.debug("Web fingerprinting failed for %s: %s", url, exc)
 
     # ── Graph population ─────────────────────────────────────────
 

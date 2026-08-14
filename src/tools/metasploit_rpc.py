@@ -21,17 +21,7 @@ import requests as _requests
 
 logger = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-# Target-scope enforcement
-# ---------------------------------------------------------------------------
-ALLOWED_TARGET_RANGES: list[str] = [
-    "10.10.0.0/16",  # HackTheBox VPN range
-    "10.129.0.0/16",  # HackTheBox VPN range (alternate)
-    "192.168.56.0/24",  # Local VirtualBox host-only
-    "192.168.0.0/16",  # Local LAN / Metasploitable lab range
-    "172.17.0.0/16",  # Docker containers
-    "127.0.0.1/32",  # Localhost
-]
+from src.config.settings import ALLOWED_TARGET_RANGES
 
 
 def validate_target(ip: str) -> bool:

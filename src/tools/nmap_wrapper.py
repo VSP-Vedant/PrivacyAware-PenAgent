@@ -18,15 +18,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-# Allowed target ranges for ethical scanning
-ALLOWED_TARGET_RANGES = [
-    "10.10.0.0/16",
-    "10.129.0.0/16",
-    "192.168.56.0/24",
-    "192.168.0.0/16",
-    "172.17.0.0/16",
-    "127.0.0.1/32",
-]
+from src.config.settings import ALLOWED_TARGET_RANGES
 
 # Scan type presets
 # --min-rate 1000  : never probe slower than 1000 pkts/sec (prevents VPN stall)

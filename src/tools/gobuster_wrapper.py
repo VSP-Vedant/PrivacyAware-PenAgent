@@ -21,17 +21,7 @@ from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 
-# ------------------------------------------------------------------
-# Security: allowed target ranges (CLAUDE.md §4.2)
-# ------------------------------------------------------------------
-ALLOWED_TARGET_RANGES: list[str] = [
-    "10.10.0.0/16",
-    "10.129.0.0/16",
-    "192.168.56.0/24",
-    "192.168.0.0/16",
-    "172.17.0.0/16",
-    "127.0.0.1",
-]
+from src.config.settings import ALLOWED_TARGET_RANGES
 
 _ACCEPTED_STATUS_CODES: frozenset[int] = frozenset({200, 301, 302, 403})
 

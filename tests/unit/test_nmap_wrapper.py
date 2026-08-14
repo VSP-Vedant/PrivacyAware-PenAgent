@@ -106,6 +106,11 @@ class TestNmapWrapper:
         wrapper = NmapWrapper()
         assert wrapper.validate_target("192.168.56.10") is True
 
+    def test_validate_target_allowed_lan(self) -> None:
+        """Test target validation passes for local LAN / Metasploitable range."""
+        wrapper = NmapWrapper()
+        assert wrapper.validate_target("192.168.0.12") is True
+
     def test_validate_target_blocked(self) -> None:
         """Test target validation rejects external IPs."""
         wrapper = NmapWrapper()

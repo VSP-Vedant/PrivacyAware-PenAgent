@@ -8,6 +8,8 @@ def test_validate_target_allowed() -> None:
     assert validate_target("10.10.11.230") is True
     # Localhost
     assert validate_target("127.0.0.1") is True
+    # Local Metasploitable 2 VM
+    assert validate_target("192.168.0.12") is True
 
 
 def test_validate_target_blocked() -> None:

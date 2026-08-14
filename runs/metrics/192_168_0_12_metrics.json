@@ -4,7 +4,7 @@
   "success": true,
   "progress_rate": 1.0,
   "milestones_hit": "[\"recon_done\", \"cve_mapped\", \"exploit_attempted\", \"session_obtained\"]",
-  "ttfs_seconds": 309.45421838760376,
+  "ttfs_seconds": 160.25799679756165,
   "step_count": 4,
   "cloud_api_calls": 1,
   "cloud_cost_usd": 0.0,
@@ -14,7 +14,7 @@
   "hosts_discovered": 1,
   "services_discovered": 22,
   "cves_mapped": 22,
-  "run_start_ts": 1786737098.5136836,
-  "run_end_ts": 1786737409.8865256,
-  "duration_seconds": 311.37284207344055
+  "run_start_ts": 1786741306.6520092,
+  "run_end_ts": 1786741468.8349085,
+  "duration_seconds": 162.18289923667908
 }

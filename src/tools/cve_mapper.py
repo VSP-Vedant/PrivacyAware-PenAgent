@@ -245,6 +245,107 @@ _KNOWN_CVES: list[dict[str, Any]] = [
             },
         ],
     },
+    # WordPress (additional high-severity RCE CVEs)
+    {
+        "service_pattern": r"^https?$",
+        "product_pattern": r"WordPress",
+        "version_pattern": r".*",
+        "cves": [
+            {
+                "cve_id": "CVE-2021-29447",
+                "cvss_score": 7.1,
+                "description": "WordPress ≤5.6.1 XXE via media file upload (RCE chain)",
+            },
+            {
+                "cve_id": "CVE-2019-8942",
+                "cvss_score": 8.8,
+                "description": "WordPress ≤5.0.3 authenticated file upload RCE",
+            },
+        ],
+    },
+    # PHPMyAdmin
+    {
+        "service_pattern": r"^https?$",
+        "product_pattern": r"(PHPMyAdmin|phpmyadmin)",
+        "version_pattern": r".*",
+        "cves": [
+            {
+                "cve_id": "CVE-2018-12613",
+                "cvss_score": 8.8,
+                "description": "phpMyAdmin ≤4.8.1 local file inclusion leading to RCE",
+            },
+        ],
+    },
+    # Jenkins
+    {
+        "service_pattern": r"^https?$",
+        "product_pattern": r"Jenkins",
+        "version_pattern": r".*",
+        "cves": [
+            {
+                "cve_id": "CVE-2019-1003000",
+                "cvss_score": 8.8,
+                "description": "Jenkins script security sandbox bypass — Groovy script RCE",
+            },
+            {
+                "cve_id": "CVE-2017-1000353",
+                "cvss_score": 9.8,
+                "description": "Jenkins Java deserialization unauthenticated RCE",
+            },
+        ],
+    },
+    # GitLab
+    {
+        "service_pattern": r"^https?$",
+        "product_pattern": r"GitLab",
+        "version_pattern": r".*",
+        "cves": [
+            {
+                "cve_id": "CVE-2021-22205",
+                "cvss_score": 10.0,
+                "description": "GitLab ≤13.10.2 unauthenticated RCE via ExifTool image parsing",
+            },
+        ],
+    },
+    # Laravel
+    {
+        "service_pattern": r"^https?$",
+        "product_pattern": r"Laravel",
+        "version_pattern": r".*",
+        "cves": [
+            {
+                "cve_id": "CVE-2021-3129",
+                "cvss_score": 9.8,
+                "description": "Laravel ≤8.4.2 debug mode RCE via log poisoning (Ignition)",
+            },
+        ],
+    },
+    # Flask / Jinja2 SSTI
+    {
+        "service_pattern": r"^https?$",
+        "product_pattern": r"(Flask|Werkzeug|Python WSGI)",
+        "version_pattern": r".*",
+        "cves": [
+            {
+                "cve_id": "CVE-2019-8341",
+                "cvss_score": 9.8,
+                "description": "Jinja2 Server-Side Template Injection (SSTI) RCE pattern",
+            },
+        ],
+    },
+    # Roundcube
+    {
+        "service_pattern": r"^https?$",
+        "product_pattern": r"Roundcube",
+        "version_pattern": r".*",
+        "cves": [
+            {
+                "cve_id": "CVE-2023-43770",
+                "cvss_score": 9.8,
+                "description": "Roundcube Webmail <1.6.4 XSS leading to RCE via email body",
+            },
+        ],
+    },
 ]
 
 
@@ -367,6 +468,81 @@ class CVEMapper:
             )
             results.append(result)
         return results
+
+    def map_service_with_extra_info(
+        self,
+        service_name: str,
+        product: str,
+        version: str,
+        extra_info: str,
+    ) -> CVEMappingResult:
+        """Map a service to CVEs, preferring ``technology=`` tag from extra_info.
+
+        When the recon agent's HTTP fingerprinter has detected a specific web
+        technology (e.g. ``technology=wordpress``), this method extracts that tag
+        and uses it as the product name for CVE matching.  This bypasses the
+        dependency on Nmap's ``product`` string (which might just report ``nginx``
+        even when WordPress is running on top).
+
+        Falls back to normal :meth:`map_service` when no technology tag is found.
+
+        Args:
+            service_name: Nmap service name (e.g., 'http').
+            product: Nmap product string (e.g., 'nginx').
+            version: Nmap version string.
+            extra_info: Raw extra_info field from the service node (may contain
+                ``technology=<name>`` or ``vhost=<host>`` substrings).
+
+        Returns:
+            A :class:`CVEMappingResult` with all matched CVEs.
+        """
+        import re as _re
+
+        tech_match = _re.search(r"technology=([^\s,]+)", extra_info or "")
+        if tech_match:
+            # Normalise technology tag: "craft_cms" → "Craft CMS"
+            raw = tech_match.group(1).replace("_", " ").title()
+            logger.info(
+                "CVE lookup using detected technology '%s' instead of product '%s'",
+                raw,
+                product,
+            )
+            # Try with the technology name as product first
+            result = self.map_service(
+                service_name=service_name,
+                product=raw,
+                version=version,
+            )
+            if result.candidates:
+                return result
+            # If nothing found, fall through to the original product
+            logger.debug(
+                "No CVEs for technology '%s', falling back to product '%s'",
+                raw,
+                product,
+            )
+        return self.map_service(service_name, product, version)
+
+    def map_services_with_extra_info(
+        self,
+        services: list[dict[str, Any]],
+    ) -> list[CVEMappingResult]:
+        """Batch version of :meth:`map_service_with_extra_info`.
+
+        Accepts service dicts with an optional ``extra_info`` key (matching the
+        ``ServiceInfo.extra_info`` field from the Nmap wrapper).
+        """
+        results: list[CVEMappingResult] = []
+        for svc in services:
+            result = self.map_service_with_extra_info(
+                service_name=svc.get("service", svc.get("name", "unknown")),
+                product=svc.get("product", ""),
+                version=svc.get("version", ""),
+                extra_info=svc.get("extra_info", ""),
+            )
+            results.append(result)
+        return results
+
 
     def _lookup_knowledge_base(
         self,

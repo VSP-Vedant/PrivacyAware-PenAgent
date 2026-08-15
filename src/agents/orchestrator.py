@@ -60,7 +60,12 @@ _llm_client = LLMClient()
 _cost_tracker = CostTracker()
 
 # Maximum exploit attempts before forcing report (safety guard)
-_MAX_EXPLOIT_ATTEMPTS = 9
+_MAX_EXPLOIT_ATTEMPTS = 18
+
+# Module-level ExploitAgent — persisted across replan cycles so _globally_tried
+# and _attempt_history survive from one exploit_node() call to the next.
+# Initialized to None; created lazily on first exploit_node() invocation.
+_exploit_agent: ExploitAgent | None = None
 
 
 def _get_msf_client() -> MetasploitRPCClient | None:
@@ -321,7 +326,13 @@ def exploit_node(state: PenTestState) -> PenTestState:
     On replanning iterations, post-mortem context from the previous failure
     is available in ``state['findings']`` and can be used to bias module
     selection toward untried options.
+
+    The ``ExploitAgent`` is persisted at module level so its ``_globally_tried``
+    and ``_attempt_history`` sets survive across replan cycles — preventing the
+    same modules from being retried on every iteration.
     """
+    global _exploit_agent
+
     logger.info("Executing exploit node")
     state["current_phase"] = "exploit"
     ag: AttackGraph = state["attack_graph"]
@@ -363,12 +374,26 @@ def exploit_node(state: PenTestState) -> PenTestState:
         )
         llm_candidates = None
 
-    # Run the real Exploit Agent
-    # Attempt to connect to msfrpcd; falls back to None (SearchSploit) if unreachable.
+    # Connect to msfrpcd; falls back to None (SearchSploit) if unreachable.
     msf_client = _get_msf_client()
-    agent = ExploitAgent(attack_graph=ag, msf_client=msf_client)
+
+    # Reuse (or lazily create) the module-level ExploitAgent so its
+    # _globally_tried / _attempt_history persists across replan cycles.
+    if _exploit_agent is None:
+        _exploit_agent = ExploitAgent(attack_graph=ag, msf_client=msf_client)
+        logger.info("Created new persistent ExploitAgent")
+    else:
+        # Update mutable references in case graph or MSF client changed
+        _exploit_agent._graph = ag
+        if msf_client is not None:
+            _exploit_agent._msf = msf_client
+        logger.info(
+            "Reusing persistent ExploitAgent — %d module/service pairs already tried",
+            len(_exploit_agent._globally_tried),
+        )
+
     try:
-        result = agent.run(state["target"], candidates=llm_candidates)
+        result = _exploit_agent.run(state["target"], candidates=llm_candidates)
         # Append attempts to state
         state["exploit_attempts"].extend(result.attempts)
     except Exception as e:

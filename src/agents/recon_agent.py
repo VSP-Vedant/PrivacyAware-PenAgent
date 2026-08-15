@@ -281,7 +281,7 @@ class ReconAgent:
         self,
         services: list[ServiceInfo],
     ) -> list[CVECandidate]:
-        """Map services to CVE candidates."""
+        """Map services to CVE candidates, using detected technology when available."""
         service_dicts: list[dict[str, Any]] = []
         for svc in services:
             service_dicts.append(
@@ -289,10 +289,12 @@ class ReconAgent:
                     "service": svc.service,
                     "product": svc.product,
                     "version": svc.version,
+                    "extra_info": svc.extra_info,  # carries technology= tag
                 }
             )
 
-        mapping_results = self._cve_mapper.map_services(service_dicts)
+        # Use technology-aware mapper so fingerprinted apps override generic product names
+        mapping_results = self._cve_mapper.map_services_with_extra_info(service_dicts)
         all_candidates: list[CVECandidate] = []
         for mr in mapping_results:
             all_candidates.extend(mr.candidates)
@@ -304,15 +306,45 @@ class ReconAgent:
         )
         return all_candidates
 
+
     def _fingerprint_web_services(
         self,
         target: str,
         services: list[ServiceInfo],
     ) -> None:
-        """Probe HTTP/HTTPS services for virtual hosts and web application frameworks."""
+        """Probe HTTP/HTTPS services for virtual hosts and web application frameworks.
+
+        Detects 15+ CMS/frameworks from response headers, cookies, body patterns,
+        and meta tags. Writes ``technology=<name>`` into ``svc.extra_info`` so the
+        exploit agent can perform targeted Metasploit module selection without
+        re-querying the web service.
+        """
         import re
         from urllib.parse import urlparse
         import requests
+
+        # Ordered: most specific first to avoid mis-classification
+        _TECH_PATTERNS: list[tuple[str, list[str], list[str], list[str]]] = [
+            # (technology_name, body_patterns, cookie_patterns, header_patterns)
+            ("Craft CMS",   ["craft", "craft_csrf_token"],        ["craft", "craft_csrf_token"], []),
+            ("WordPress",   ["wp-content", "wp-includes", "wordpress"],   [],                    []),
+            ("Drupal",      ["drupal", "sites/default/files"],    [],                            ["drupal", "x-drupal"]),
+            ("Joomla",      ["joomla", "/administrator/", "com_content"],  [],                   []),
+            ("PHPMyAdmin",  ["phpmyadmin", "pma_", "pmaTheme"],  ["pma_lang", "phpMyAdmin"],    []),
+            ("Jenkins",     ["jenkins", "hudson", "j_security_check"],    [],                    ["x-jenkins"]),
+            ("GitLab",      ["gitlab", "gl-csrf-token"],          ["_gitlab_session"],           []),
+            ("Roundcube",   ["roundcube", "roundcubemail"],        ["roundcube_sessid"],         []),
+            ("Laravel",     ["laravel", "csrf-token"],             ["laravel_session"],           []),
+            ("Django",      ["csrfmiddlewaretoken", "djdt"],       ["csrftoken", "sessionid"],   []),
+            ("Flask",       ["werkzeug", "flask"],                 ["session"],                  ["server:werkzeug"]),
+            ("Tomcat",      ["apache tomcat", "tomcat", "catalina"],      [],                    ["server:apache-coyote", "server:tomcat"]),
+            ("Grafana",     ["grafana"],                           ["grafana_session"],           []),
+            ("Kibana",      ["kibana"],                            [],                            []),
+            ("Magento",     ["magento", "mage-"],                 ["mage-"],                     []),
+            ("OpenCart",    ["opencart"],                          ["OCSESSID"],                 []),
+            ("Struts",      ["struts", ".action", "org.apache.struts"], [],                      []),
+            ("Spring Boot", ["whitelabel error page", "spring"],  ["jsessionid"],               []),
+        ]
 
         for svc in services:
             if svc.service not in _HTTP_SERVICE_NAMES and svc.port not in (80, 443, 8080, 8443):
@@ -323,39 +355,82 @@ class ReconAgent:
             detected_app = ""
 
             try:
-                # 1. Check for redirects / VHOST
-                resp = requests.get(url, timeout=0.5, allow_redirects=False)
+                # 1. Check for redirects / VHOST (short timeout — just reading headers)
+                resp = requests.get(
+                    url, timeout=3, allow_redirects=False,
+                    verify=False,  # ignore self-signed certs common on HTB
+                )
                 loc = resp.headers.get("Location", "")
                 if loc:
                     parsed = urlparse(loc)
                     if parsed.hostname and not re.match(r"^\d+\.\d+\.\d+\.\d+$", parsed.hostname):
                         vhost = parsed.hostname
 
-                # 2. Probe with Host header or follow redirect
-                headers = {"Host": vhost} if vhost else {}
-                resp2 = requests.get(url, headers=headers, timeout=0.5, allow_redirects=True)
-                body_lower = resp2.text.lower()
+                # 2. Follow redirects & read full response
+                req_headers = {"Host": vhost} if vhost else {}
+                resp2 = requests.get(
+                    url, headers=req_headers, timeout=3,
+                    allow_redirects=True, verify=False,
+                )
+                body_lower = resp2.text[:32768].lower()  # cap at 32 KiB
                 cookies_lower = " ".join(resp2.cookies.keys()).lower()
-                headers_lower = " ".join(f"{k}:{v}" for k, v in resp2.headers.items()).lower()
+                headers_str = " ".join(
+                    f"{k.lower()}:{v.lower()}" for k, v in resp2.headers.items()
+                )
 
-                if "craft" in body_lower or "craft" in cookies_lower or "craft_csrf_token" in cookies_lower:
-                    detected_app = "Craft CMS"
-                elif "wp-content" in body_lower or "wordpress" in body_lower or "wp-includes" in body_lower:
-                    detected_app = "WordPress"
-                elif "drupal" in body_lower or "drupal" in headers_lower:
-                    detected_app = "Drupal"
-                elif "joomla" in body_lower:
-                    detected_app = "Joomla"
+                # 3. Parse <meta name="generator"> tag
+                meta_gen = ""
+                m = re.search(r'<meta[^>]+name=["\']generator["\'][^>]+content=["\']([^"\']+)', resp2.text, re.IGNORECASE)
+                if m:
+                    meta_gen = m.group(1).lower()
 
+                # 4. Match patterns
+                for tech_name, body_pats, cookie_pats, header_pats in _TECH_PATTERNS:
+                    hit = (
+                        any(p in body_lower or p in meta_gen for p in body_pats)
+                        or any(p in cookies_lower for p in cookie_pats)
+                        or any(p in headers_str for p in header_pats)
+                    )
+                    if hit:
+                        detected_app = tech_name
+                        break
+
+                # 5. Server header as last resort
+                if not detected_app:
+                    server = resp2.headers.get("Server", "").lower()
+                    if "tomcat" in server or "coyote" in server:
+                        detected_app = "Tomcat"
+                    elif "werkzeug" in server:
+                        detected_app = "Flask"
+                    elif "gunicorn" in server or "uvicorn" in server:
+                        detected_app = "Python WSGI"
+
+                # 6. Write discoveries back to the service node
                 if detected_app:
-                    logger.info("Web fingerprinting discovered application '%s' on %s", detected_app, url)
+                    logger.info(
+                        "Web fingerprinting: '%s' detected on %s", detected_app, url
+                    )
+                    print(f"[RECON] Detected web technology: {detected_app} on {url}")
                     svc.product = detected_app
+
+                    # Write technology= tag into extra_info for exploit agent
+                    tech_tag = f"technology={detected_app.lower().replace(' ', '_')}"
+                    if not svc.extra_info:
+                        svc.extra_info = tech_tag
+                    elif "technology=" not in svc.extra_info:
+                        svc.extra_info = f"{svc.extra_info} {tech_tag}"
+
                 if vhost:
-                    logger.info("Web fingerprinting discovered virtual host '%s' for %s", vhost, target)
+                    logger.info(
+                        "Web fingerprinting: vhost '%s' discovered for %s", vhost, target
+                    )
                     if not svc.extra_info:
                         svc.extra_info = f"vhost={vhost}"
                     elif "vhost=" not in svc.extra_info:
                         svc.extra_info = f"{svc.extra_info} vhost={vhost}"
+
+            except requests.exceptions.SSLError:
+                logger.debug("SSL error on %s — retrying without verification", url)
             except Exception as exc:
                 logger.debug("Web fingerprinting failed for %s: %s", url, exc)
 

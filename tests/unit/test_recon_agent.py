@@ -439,6 +439,7 @@ class TestReconAgentCVEGraphPopulation:
         )
         mock_cve_instance = MockCVEMapper.return_value
         mock_cve_instance.map_services.return_value = [mapping_result]
+        mock_cve_instance.map_services_with_extra_info.return_value = [mapping_result]
 
         agent = ReconAgent(
             attack_graph=attack_graph, use_gobuster=False, use_cve_mapping=True

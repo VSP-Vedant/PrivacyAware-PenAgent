@@ -170,6 +170,20 @@ def analyze_graph_node(state: PenTestState) -> PenTestState:
         state["step_count"] += 1
         return state
 
+    # ── LLM failure fast-path ─────────────────────────────────────
+    # If Ollama has timed out >= 2 consecutive times, we know the LLM is
+    # unavailable for this run (resource constraints / no GPU). Skipping
+    # the 105s combined timeout saves ~2min per replan cycle and lets the
+    # ExploitAgent's built-in MSF/SearchSploit discovery do the work.
+    if state.get("consecutive_llm_failures", 0) >= 2:
+        logger.info(
+            "LLM unavailable (consecutive failures: %d) — skipping LLM analysis this cycle",
+            state.get("consecutive_llm_failures", 0),
+        )
+        print("[ANALYZE] LLM repeatedly unavailable — skipping to ExploitAgent discovery.")
+        state["step_count"] += 1
+        return state
+
     # Query exploitable services from the attack graph
     exploitable = ag.get_exploitable_services()
     if not exploitable:
@@ -316,6 +330,18 @@ def analyze_graph_node(state: PenTestState) -> PenTestState:
     state["exploit_candidates"] = candidates
     logger.info("LLM generated %d valid exploit candidates", len(candidates))
 
+    # Track consecutive LLM failures for the fast-path guard above.
+    # A "failure" is any cycle where the LLM returned 0 usable candidates
+    # (empty response, timeout fallback, or all paths hallucinated).
+    if candidates:
+        state["consecutive_llm_failures"] = 0
+    else:
+        state["consecutive_llm_failures"] = state.get("consecutive_llm_failures", 0) + 1
+        logger.debug(
+            "LLM returned no usable candidates (consecutive failures: %d)",
+            state["consecutive_llm_failures"],
+        )
+
     state["step_count"] += 1
     return state
 
@@ -395,7 +421,23 @@ def exploit_node(state: PenTestState) -> PenTestState:
     try:
         result = _exploit_agent.run(state["target"], candidates=llm_candidates)
         # Append attempts to state
-        state["exploit_attempts"].extend(result.attempts)
+        new_attempts = result.attempts
+        state["exploit_attempts"].extend(new_attempts)
+
+        # Track empty-cycle counter: if ExploitAgent made 0 new attempts this
+        # cycle, all candidates were filtered (_globally_tried / _attempt_history).
+        # Two consecutive empty cycles means the agent is fully stuck.
+        if new_attempts:
+            state["consecutive_empty_exploit_cycles"] = 0
+        else:
+            state["consecutive_empty_exploit_cycles"] = (
+                state.get("consecutive_empty_exploit_cycles", 0) + 1
+            )
+            logger.warning(
+                "ExploitAgent made 0 new attempts this cycle (all candidates exhausted). "
+                "Consecutive empty cycles: %d",
+                state["consecutive_empty_exploit_cycles"],
+            )
     except Exception as e:
         logger.error("Exploit node failed: %s", e)
 
@@ -617,11 +659,24 @@ def check_success(state: PenTestState) -> Literal["report", "replan"]:
         state["termination_reason"] = "exploit_attempt_cap_reached"
         return "report"
 
-    # ── Unrecoverable-error loop guard ───────────────────────────
+    # ── Guard 1: Empty-cycle termination ─────────────────────────
+    # If the ExploitAgent made 0 new attempts for 2 consecutive cycles,
+    # every candidate has been exhausted/filtered. Replanning cannot
+    # generate new modules from a broken LLM — stop and report.
+    if state.get("consecutive_empty_exploit_cycles", 0) >= 2:
+        logger.warning(
+            "ExploitAgent produced no new attempts for 2 consecutive cycles "
+            "— all candidates exhausted. Routing to report."
+        )
+        state["termination_reason"] = "all_candidates_exhausted"
+        return "report"
+
+    # ── Guard 2: Unrecoverable-error loop guard ───────────────────
     # If no new LLM candidates exist AND the last N attempts all share
-    # the same terminal error (module_not_found OR connection_refused),
-    # replanning cannot help — break the loop and report.
-    _TERMINAL_ERRORS = ("module_not_found", "connection_refused")
+    # the same terminal error, replanning cannot help — break and report.
+    # auth_failed is included: SSH brute-force that keeps failing cannot be
+    # fixed by replanning when no new credentials / modules are available.
+    _TERMINAL_ERRORS = ("module_not_found", "connection_refused", "auth_failed")
     if not state.get("exploit_candidates") and last.error_type in _TERMINAL_ERRORS:
         recent = state["exploit_attempts"][-min(3, len(state["exploit_attempts"])):]
         all_terminal = all(a.error_type in _TERMINAL_ERRORS for a in recent)

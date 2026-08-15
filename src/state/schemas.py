@@ -347,3 +347,6 @@ class PenTestState(TypedDict):
     termination_reason: str
     nmap_scan_type: str
     mode: str  # Run mode: 'full' or 'recon-only'
+    # Loop-guard counters (default 0 if key absent — use state.get())
+    consecutive_empty_exploit_cycles: int  # Cycles where ExploitAgent made 0 new attempts
+    consecutive_llm_failures: int          # Cycles where LLM timed out / returned empty

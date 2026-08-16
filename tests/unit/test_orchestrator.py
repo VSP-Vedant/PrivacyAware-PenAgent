@@ -57,7 +57,7 @@ def test_check_success_with_failure(empty_state: PenTestState) -> None:
 
 
 def test_check_success_max_steps(empty_state: PenTestState) -> None:
-    for i in range(10):
+    for i in range(18):
         empty_state["exploit_attempts"].append(
             ExploitAttempt(
                 target_service_id="svc-1", module_used="test", result="failure"

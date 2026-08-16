@@ -133,6 +133,7 @@ def test_exploit_node_no_exploitable(
     mock_exploit_agent.assert_not_called()
 
 
+@patch("src.agents.orchestrator._exploit_agent", None)
 @patch("src.agents.orchestrator.ExploitAgent")
 def test_exploit_node_with_exploitable(
     mock_exploit_agent: MagicMock, empty_state: PenTestState
@@ -163,6 +164,7 @@ def test_exploit_node_with_exploitable(
     mock_instance.run.assert_called_once_with("10.10.10.10", candidates=None)
 
 
+@patch("src.agents.orchestrator._exploit_agent", None)
 @patch("src.agents.orchestrator.ExploitAgent")
 def test_exploit_node_with_llm_candidates(
     mock_exploit_agent: MagicMock, empty_state: PenTestState

@@ -151,6 +151,8 @@ def main() -> None:
         "termination_reason": "",
         "nmap_scan_type": scan_type,  # passed to recon_node
         "mode": args.mode,
+        "consecutive_empty_exploit_cycles": 0,
+        "consecutive_llm_failures": 0,
     }
 
     # Build LangGraph — import here (not at top of file) so that any

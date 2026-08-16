@@ -248,12 +248,12 @@ class ReconAgent:
                     )
                     for ep in ws_result.endpoints:
                         path = ep.url.replace(ws_result.base_url, "")
-                        if not any(e.path == path for e in all_endpoints):
+                        if not any(e.url == path for e in all_endpoints):
                             all_endpoints.append(
                                 WebEndpoint(
-                                    path=path,
+                                    url=path,
                                     status_code=ep.status_code,
-                                    length=0,
+                                    content_length=0,
                                 )
                             )
                     # If WebScanner found direct CVEs, write to graph

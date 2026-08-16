@@ -260,9 +260,7 @@ class ReconAgent:
                     for cve in ws_result.cves:
                         cve_node_id = cve.node_id
                         if not self._graph.graph.has_node(cve_node_id):
-                            self._graph.graph.add_node(
-                                cve_node_id, **cve.to_dict()
-                            )
+                            self._graph.graph.add_node(cve_node_id, **cve.to_dict())
                             service_node_id = (
                                 f"service:{target}:{svc.port}/{svc.protocol}"
                             )
@@ -306,7 +304,6 @@ class ReconAgent:
         )
         return all_candidates
 
-
     def _fingerprint_web_services(
         self,
         target: str,
@@ -326,30 +323,54 @@ class ReconAgent:
         # Ordered: most specific first to avoid mis-classification
         _TECH_PATTERNS: list[tuple[str, list[str], list[str], list[str]]] = [
             # (technology_name, body_patterns, cookie_patterns, header_patterns)
-            ("Craft CMS",   ["craft", "craft_csrf_token"],        ["craft", "craft_csrf_token"], []),
-            ("WordPress",   ["wp-content", "wp-includes", "wordpress"],   [],                    []),
-            ("Drupal",      ["drupal", "sites/default/files"],    [],                            ["drupal", "x-drupal"]),
-            ("Joomla",      ["joomla", "/administrator/", "com_content"],  [],                   []),
-            ("PHPMyAdmin",  ["phpmyadmin", "pma_", "pmaTheme"],  ["pma_lang", "phpMyAdmin"],    []),
-            ("Jenkins",     ["jenkins", "hudson", "j_security_check"],    [],                    ["x-jenkins"]),
-            ("GitLab",      ["gitlab", "gl-csrf-token"],          ["_gitlab_session"],           []),
-            ("Roundcube",   ["roundcube", "roundcubemail"],        ["roundcube_sessid"],         []),
-            ("Laravel",     ["laravel", "csrf-token"],             ["laravel_session"],           []),
-            ("Django",      ["csrfmiddlewaretoken", "djdt"],       ["csrftoken", "sessionid"],   []),
-            ("Flask",       ["werkzeug", "flask"],                 ["session"],                  ["server:werkzeug"]),
-            ("Tomcat",      ["apache tomcat", "tomcat", "catalina"],      [],                    ["server:apache-coyote", "server:tomcat"]),
-            ("Grafana",     ["grafana"],                           ["grafana_session"],           []),
-            ("Kibana",      ["kibana"],                            [],                            []),
-            ("Magento",     ["magento", "mage-"],                 ["mage-"],                     []),
-            ("OpenCart",    ["opencart"],                          ["OCSESSID"],                 []),
-            ("Struts",      ["struts", ".action", "org.apache.struts"], [],                      []),
-            ("Spring Boot", ["whitelabel error page", "spring"],  ["jsessionid"],               []),
+            (
+                "Craft CMS",
+                ["craft", "craft_csrf_token"],
+                ["craft", "craft_csrf_token"],
+                [],
+            ),
+            ("WordPress", ["wp-content", "wp-includes", "wordpress"], [], []),
+            ("Drupal", ["drupal", "sites/default/files"], [], ["drupal", "x-drupal"]),
+            ("Joomla", ["joomla", "/administrator/", "com_content"], [], []),
+            (
+                "PHPMyAdmin",
+                ["phpmyadmin", "pma_", "pmaTheme"],
+                ["pma_lang", "phpMyAdmin"],
+                [],
+            ),
+            ("Jenkins", ["jenkins", "hudson", "j_security_check"], [], ["x-jenkins"]),
+            ("GitLab", ["gitlab", "gl-csrf-token"], ["_gitlab_session"], []),
+            ("Roundcube", ["roundcube", "roundcubemail"], ["roundcube_sessid"], []),
+            ("Laravel", ["laravel", "csrf-token"], ["laravel_session"], []),
+            ("Django", ["csrfmiddlewaretoken", "djdt"], ["csrftoken", "sessionid"], []),
+            ("Flask", ["werkzeug", "flask"], ["session"], ["server:werkzeug"]),
+            (
+                "Tomcat",
+                ["apache tomcat", "tomcat", "catalina"],
+                [],
+                ["server:apache-coyote", "server:tomcat"],
+            ),
+            ("Grafana", ["grafana"], ["grafana_session"], []),
+            ("Kibana", ["kibana"], [], []),
+            ("Magento", ["magento", "mage-"], ["mage-"], []),
+            ("OpenCart", ["opencart"], ["OCSESSID"], []),
+            ("Struts", ["struts", ".action", "org.apache.struts"], [], []),
+            ("Spring Boot", ["whitelabel error page", "spring"], ["jsessionid"], []),
         ]
 
         for svc in services:
-            if svc.service not in _HTTP_SERVICE_NAMES and svc.port not in (80, 443, 8080, 8443):
+            if svc.service not in _HTTP_SERVICE_NAMES and svc.port not in (
+                80,
+                443,
+                8080,
+                8443,
+            ):
                 continue
-            scheme = "https" if svc.service in {"https", "https-alt"} or svc.port == 443 else "http"
+            scheme = (
+                "https"
+                if svc.service in {"https", "https-alt"} or svc.port == 443
+                else "http"
+            )
             url = f"{scheme}://{target}:{svc.port}/"
             vhost = ""
             detected_app = ""
@@ -357,20 +378,27 @@ class ReconAgent:
             try:
                 # 1. Check for redirects / VHOST (short timeout — just reading headers)
                 resp = requests.get(
-                    url, timeout=3, allow_redirects=False,
+                    url,
+                    timeout=3,
+                    allow_redirects=False,
                     verify=False,  # ignore self-signed certs common on HTB
                 )
                 loc = resp.headers.get("Location", "")
                 if loc:
                     parsed = urlparse(loc)
-                    if parsed.hostname and not re.match(r"^\d+\.\d+\.\d+\.\d+$", parsed.hostname):
+                    if parsed.hostname and not re.match(
+                        r"^\d+\.\d+\.\d+\.\d+$", parsed.hostname
+                    ):
                         vhost = parsed.hostname
 
                 # 2. Follow redirects & read full response
                 req_headers = {"Host": vhost} if vhost else {}
                 resp2 = requests.get(
-                    url, headers=req_headers, timeout=3,
-                    allow_redirects=True, verify=False,
+                    url,
+                    headers=req_headers,
+                    timeout=3,
+                    allow_redirects=True,
+                    verify=False,
                 )
                 body_lower = resp2.text[:32768].lower()  # cap at 32 KiB
                 cookies_lower = " ".join(resp2.cookies.keys()).lower()
@@ -380,7 +408,11 @@ class ReconAgent:
 
                 # 3. Parse <meta name="generator"> tag
                 meta_gen = ""
-                m = re.search(r'<meta[^>]+name=["\']generator["\'][^>]+content=["\']([^"\']+)', resp2.text, re.IGNORECASE)
+                m = re.search(
+                    r'<meta[^>]+name=["\']generator["\'][^>]+content=["\']([^"\']+)',
+                    resp2.text,
+                    re.IGNORECASE,
+                )
                 if m:
                     meta_gen = m.group(1).lower()
 
@@ -422,7 +454,9 @@ class ReconAgent:
 
                 if vhost:
                     logger.info(
-                        "Web fingerprinting: vhost '%s' discovered for %s", vhost, target
+                        "Web fingerprinting: vhost '%s' discovered for %s",
+                        vhost,
+                        target,
                     )
                     if not svc.extra_info:
                         svc.extra_info = f"vhost={vhost}"
@@ -548,7 +582,8 @@ class ReconAgent:
             inserted,
         )
         if inserted > 0:
-            print(f"[RECON] CVE mapping: {inserted} CVE node(s) written to attack graph")
+            print(
+                f"[RECON] CVE mapping: {inserted} CVE node(s) written to attack graph"
+            )
 
         self._graph.persistence.save_graph(self._graph.graph)
-

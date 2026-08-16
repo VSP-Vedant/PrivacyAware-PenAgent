@@ -49,7 +49,9 @@ class TestWebScanner:
         mock_get.side_effect = side_effect
 
         scanner = WebScanner(timeout_secs=1.0)
-        result = scanner.scan_service("10.10.10.10", 80, protocol="http", vhost="target.htb")
+        result = scanner.scan_service(
+            "10.10.10.10", 80, protocol="http", vhost="target.htb"
+        )
 
         assert result.target == "10.10.10.10"
         assert result.port == 80

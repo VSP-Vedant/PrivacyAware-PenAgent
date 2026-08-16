@@ -183,6 +183,7 @@ class MetasploitRPCClient:
         # Read password from settings if not set
         if not self._password:
             from src.config.settings import MSF_RPC_PASSWORD
+
             self._password = MSF_RPC_PASSWORD or "msfpassword"
 
         # ── Fast port reachability check ─────────────────────────────
@@ -212,7 +213,9 @@ class MetasploitRPCClient:
                     self._client = {"token": token, "url": self._rpc_url}
                     logger.info(
                         "Connected to msfrpcd at %s:%d (ssl=%s) via raw msgpack",
-                        self._host, self._port, self._ssl,
+                        self._host,
+                        self._port,
+                        self._ssl,
                     )
                     return True
             except Exception:
@@ -246,8 +249,7 @@ class MetasploitRPCClient:
 
         Does NOT require a connected state — used for auth.login itself.
         """
-        url = getattr(self, "_rpc_url",
-                      f"http://{self._host}:{self._port}/api/")
+        url = getattr(self, "_rpc_url", f"http://{self._host}:{self._port}/api/")
         payload = msgpack.dumps([method] + list(args))
         r = _requests.post(
             url,
@@ -329,9 +331,11 @@ class MetasploitRPCClient:
             if not isinstance(raw, list):
                 raw = []
             for mod in raw:
+
                 def _s(key: str) -> str:
                     v = mod.get(key.encode(), mod.get(key, ""))
                     return v.decode() if isinstance(v, bytes) else str(v)
+
                 mod_type_val = _s("type")
                 if module_type and mod_type_val != module_type:
                     continue
@@ -349,7 +353,9 @@ class MetasploitRPCClient:
                 )
             logger.info(
                 "Module search for %r returned %d %s result(s)",
-                query, len(results), module_type or "any",
+                query,
+                len(results),
+                module_type or "any",
             )
         except MetasploitConnectionError:
             raise
@@ -389,7 +395,9 @@ class MetasploitRPCClient:
 
         logger.warning(
             "Executing exploit %s against %s:%d",
-            module_path, options.rhosts, options.rport,
+            module_path,
+            options.rhosts,
+            options.rport,
         )
 
         # --- fire --------------------------------------------------------
@@ -419,7 +427,9 @@ class MetasploitRPCClient:
         if isinstance(resp, dict):
             err = resp.get(b"error", resp.get("error", False))
             if err:
-                err_msg = resp.get(b"error_message", resp.get("error_message", b"Unknown"))
+                err_msg = resp.get(
+                    b"error_message", resp.get("error_message", b"Unknown")
+                )
                 if isinstance(err_msg, bytes):
                     err_msg = err_msg.decode()
                 return ExploitExecutionResult(
@@ -436,7 +446,9 @@ class MetasploitRPCClient:
         if session_id is not None:
             logger.critical(
                 "Exploit SUCCESS — session %d on %s via %s",
-                session_id, options.rhosts, module_path,
+                session_id,
+                options.rhosts,
+                module_path,
             )
             return ExploitExecutionResult(
                 success=True,
@@ -447,7 +459,8 @@ class MetasploitRPCClient:
             )
 
         logger.warning(
-            "Exploit completed but no session on %s", options.rhosts,
+            "Exploit completed but no session on %s",
+            options.rhosts,
         )
         return ExploitExecutionResult(
             success=False,
@@ -469,9 +482,11 @@ class MetasploitRPCClient:
             if isinstance(raw, dict):
                 for sid, info in raw.items():
                     if isinstance(info, dict):
+
                         def _si(key: str) -> str:
                             v = info.get(key.encode(), info.get(key, ""))
                             return v.decode() if isinstance(v, bytes) else str(v)
+
                         sessions.append(
                             SessionInfo(
                                 session_id=int(sid),
@@ -524,10 +539,14 @@ class MetasploitRPCClient:
         try:
             cmd = [
                 "msfrpcd",
-                "-U", "msf",
-                "-P", self._password or "msfpassword",
-                "-a", self._host,
-                "-p", str(self._port),
+                "-U",
+                "msf",
+                "-P",
+                self._password or "msfpassword",
+                "-a",
+                self._host,
+                "-p",
+                str(self._port),
                 "-S",  # disable SSL (match MSF_RPC_SSL=false in .env)
                 "-f",  # run in foreground (we background via subprocess)
             ]

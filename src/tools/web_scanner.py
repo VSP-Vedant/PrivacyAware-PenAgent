@@ -72,7 +72,9 @@ class WebScanner:
         """
         self._timeout = timeout_secs
         self._session = requests.Session()
-        self._session.headers.update({"User-Agent": "Mozilla/5.0 (PenAgent-WebScanner/1.0)"})
+        self._session.headers.update(
+            {"User-Agent": "Mozilla/5.0 (PenAgent-WebScanner/1.0)"}
+        )
 
     def scan_service(
         self,

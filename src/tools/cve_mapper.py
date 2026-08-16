@@ -543,7 +543,6 @@ class CVEMapper:
             results.append(result)
         return results
 
-
     def _lookup_knowledge_base(
         self,
         service_name: str,

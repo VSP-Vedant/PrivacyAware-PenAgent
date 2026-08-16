@@ -180,7 +180,9 @@ def analyze_graph_node(state: PenTestState) -> PenTestState:
             "LLM unavailable (consecutive failures: %d) — skipping LLM analysis this cycle",
             state.get("consecutive_llm_failures", 0),
         )
-        print("[ANALYZE] LLM repeatedly unavailable — skipping to ExploitAgent discovery.")
+        print(
+            "[ANALYZE] LLM repeatedly unavailable — skipping to ExploitAgent discovery."
+        )
         state["step_count"] += 1
         return state
 
@@ -279,9 +281,7 @@ def analyze_graph_node(state: PenTestState) -> PenTestState:
             os.getenv("OPENAI_API_KEY") or os.getenv("ANTHROPIC_API_KEY")
         )
         actual_model = (
-            decision.model
-            if has_cloud_key
-            else (OLLAMA_MODEL_LOCAL or "llama3:8b")
+            decision.model if has_cloud_key else (OLLAMA_MODEL_LOCAL or "llama3:8b")
         )
         _cost_tracker.add_run(actual_model, prompt_tokens, response_tokens)
         state["cloud_tokens_used"] += prompt_tokens + response_tokens
@@ -678,7 +678,7 @@ def check_success(state: PenTestState) -> Literal["report", "replan"]:
     # fixed by replanning when no new credentials / modules are available.
     _TERMINAL_ERRORS = ("module_not_found", "connection_refused", "auth_failed")
     if not state.get("exploit_candidates") and last.error_type in _TERMINAL_ERRORS:
-        recent = state["exploit_attempts"][-min(3, len(state["exploit_attempts"])):]
+        recent = state["exploit_attempts"][-min(3, len(state["exploit_attempts"])) :]
         all_terminal = all(a.error_type in _TERMINAL_ERRORS for a in recent)
         if all_terminal:
             logger.warning(

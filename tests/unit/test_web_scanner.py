@@ -2,10 +2,8 @@
 
 from unittest.mock import MagicMock, patch
 import pytest
-import requests
 
-from src.state.schemas import CVENode, WebEndpointNode
-from src.tools.web_scanner import WebScanner, WebScanResult
+from src.tools.web_scanner import WebScanner
 from src.utils.validators import TargetValidationError
 
 

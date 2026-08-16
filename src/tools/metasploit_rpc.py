@@ -8,7 +8,6 @@ All exploit execution is gated by ALLOWED_TARGET_RANGES validation.
 from __future__ import annotations
 
 import logging
-import os
 import socket
 import subprocess
 import time
@@ -19,9 +18,9 @@ from typing import Any
 import msgpack
 import requests as _requests
 
-logger = logging.getLogger(__name__)
-
 from src.config.settings import ALLOWED_TARGET_RANGES
+
+logger = logging.getLogger(__name__)
 
 
 def validate_target(ip: str) -> bool:
@@ -513,7 +512,7 @@ class MetasploitRPCClient:
         self._require_connection()
         logger.info("Running command in session %d: %r", session_id, command)
         try:
-            resp = self._rpc("session.shell_write", str(session_id), command + "\n")
+            self._rpc("session.shell_write", str(session_id), command + "\n")
             time.sleep(1)
             read_resp = self._rpc("session.shell_read", str(session_id))
             data = read_resp.get(b"data", read_resp.get("data", b""))

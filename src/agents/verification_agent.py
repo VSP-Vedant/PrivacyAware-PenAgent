@@ -14,6 +14,7 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass
+from typing import Any
 
 from src.state.attack_graph import AttackGraph
 from src.state.schemas import (

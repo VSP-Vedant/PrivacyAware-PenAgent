@@ -37,8 +37,6 @@ from src.config.settings import (
     MSF_RPC_PASSWORD,
     MSF_RPC_PORT,
     MSF_RPC_SSL,
-    OPENAI_API_KEY,
-    ANTHROPIC_API_KEY,
     OLLAMA_MODEL_LOCAL,
 )
 from src.evaluation.metrics import RunMetrics, compute_metrics, save_run_metrics

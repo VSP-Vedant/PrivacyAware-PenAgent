@@ -16,9 +16,9 @@ from ipaddress import ip_address, ip_network
 from pathlib import Path
 from typing import Any
 
-logger = logging.getLogger(__name__)
-
 from src.config.settings import ALLOWED_TARGET_RANGES
+
+logger = logging.getLogger(__name__)
 
 # Scan type presets
 # --min-rate 1000  : never probe slower than 1000 pkts/sec (prevents VPN stall)

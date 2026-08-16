@@ -8,18 +8,15 @@ Owner: Vedant (Member C) / Shared Security Foundation
 
 from __future__ import annotations
 
-import re
-import socket
 from dataclasses import dataclass, field
-from typing import Any
-from urllib.parse import urljoin, urlparse
 
 import requests
 
-from src.config.settings import ALLOWED_TARGET_RANGES
+from urllib.parse import urljoin
+
 from src.state.schemas import CVENode, WebEndpointNode
 from src.utils.logging_config import setup_logger
-from src.utils.validators import TargetValidationError, validate_target
+from src.utils.validators import validate_target
 
 logger = setup_logger(__name__)
 

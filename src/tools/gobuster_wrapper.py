@@ -19,9 +19,9 @@ from dataclasses import dataclass, field
 from ipaddress import ip_address, ip_network
 from urllib.parse import urlparse
 
-logger = logging.getLogger(__name__)
-
 from src.config.settings import ALLOWED_TARGET_RANGES
+
+logger = logging.getLogger(__name__)
 
 _ACCEPTED_STATUS_CODES: frozenset[int] = frozenset({200, 301, 302, 403})
 

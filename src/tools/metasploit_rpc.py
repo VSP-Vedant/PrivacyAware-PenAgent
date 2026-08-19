@@ -507,6 +507,9 @@ class MetasploitRPCClient:
             options.rport,
         )
 
+        # Clean up any stale background jobs before execution to prevent port binding conflicts
+        self._cleanup_stale_jobs()
+
         # Snapshot existing sessions before execution
         prior_sessions = self._get_session_ids_for_host(options.rhosts)
 
@@ -550,6 +553,16 @@ class MetasploitRPCClient:
                     error_message=str(err_msg),
                 )
 
+        # Extract job_id from module execution response
+        job_id = None
+        if isinstance(resp, dict):
+            raw_jid = resp.get(b"job_id", resp.get("job_id"))
+            if raw_jid is not None:
+                try:
+                    job_id = int(raw_jid)
+                except (ValueError, TypeError):
+                    pass
+
         # --- poll for session --------------------------------------------
         # 60 s: Metasploitable2 exploits (vsftpd backdoor, samba/usermap_script,
         # distcc_exec, etc.) can take 35-60 s to land a shell via RPC overhead.
@@ -571,6 +584,13 @@ class MetasploitRPCClient:
                 target=options.rhosts,
                 raw_output=str(resp),
             )
+
+        # If exploit failed to produce a session, stop its leftover handler job
+        if job_id is not None:
+            try:
+                self._rpc("job.stop", str(job_id))
+            except Exception:
+                pass
 
         logger.warning(
             "Exploit completed but no session on %s",
@@ -733,6 +753,31 @@ class MetasploitRPCClient:
                 "Not connected to msfrpcd — call connect() first"
             )
 
+    def _extract_host_from_info(self, info: dict) -> str:
+        """Extract IP address from a raw session dictionary."""
+        for key in (b"target_host", "target_host", b"session_host", "session_host"):
+            val = info.get(key)
+            if val:
+                return val.decode() if isinstance(val, bytes) else str(val)
+        peer = info.get(b"tunnel_peer", info.get("tunnel_peer", ""))
+        if peer:
+            peer_str = peer.decode() if isinstance(peer, bytes) else str(peer)
+            return peer_str.split(":")[0]
+        return ""
+
+    def _cleanup_stale_jobs(self) -> None:
+        """Stop any idle MSF background jobs/handlers to prevent port conflicts."""
+        try:
+            raw = self._rpc("job.list")
+            if isinstance(raw, dict):
+                for jid in list(raw.keys()):
+                    try:
+                        self._rpc("job.stop", str(jid))
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
     def _get_session_ids_for_host(self, target: str) -> set[int]:
         """Return the set of active session IDs currently open on target host."""
         try:
@@ -741,9 +786,7 @@ class MetasploitRPCClient:
                 ids: set[int] = set()
                 for sid, info in raw.items():
                     if isinstance(info, dict):
-                        host = info.get(b"target_host", info.get("target_host", ""))
-                        if isinstance(host, bytes):
-                            host = host.decode()
+                        host = self._extract_host_from_info(info)
                         if host == target:
                             ids.add(int(sid))
                 return ids
@@ -767,18 +810,14 @@ class MetasploitRPCClient:
                     # First check for newly spawned session not in prior snapshots
                     for sid, info in raw.items():
                         if isinstance(info, dict):
-                            host = info.get(b"target_host", info.get("target_host", ""))
-                            if isinstance(host, bytes):
-                                host = host.decode()
+                            host = self._extract_host_from_info(info)
                             if host == target and int(sid) not in priors:
                                 return int(sid)
                     # If priors was empty, check for any session on target
                     if not priors:
                         for sid, info in raw.items():
                             if isinstance(info, dict):
-                                host = info.get(b"target_host", info.get("target_host", ""))
-                                if isinstance(host, bytes):
-                                    host = host.decode()
+                                host = self._extract_host_from_info(info)
                                 if host == target:
                                     return int(sid)
             except Exception:

@@ -45,6 +45,7 @@ def _node_color(node_type: str) -> str:
         "cve": "#E8963A",
         "session": "#D94A4A",
         "web_endpoint": "#A860D0",
+        "verified_finding": "#E066FF",
         "failure": "#888888",
     }
     return colors.get(node_type, "#AAAAAA")
@@ -161,7 +162,7 @@ class ReportGenerator:
 
         Returns:
             A structured dictionary with hosts, services, CVEs, sessions,
-            and failure nodes.
+            verified findings, and failure nodes.
         """
         g = self._graph.graph
         hosts: list[dict[str, Any]] = []
@@ -169,6 +170,7 @@ class ReportGenerator:
         cves: list[dict[str, Any]] = []
         sessions: list[dict[str, Any]] = []
         web_endpoints: list[dict[str, Any]] = []
+        verified_findings: list[dict[str, Any]] = []
         failures: list[dict[str, Any]] = []
 
         for node_id, data in g.nodes(data=True):
@@ -186,6 +188,8 @@ class ReportGenerator:
                 sessions.append(enriched)
             elif node_type == "web_endpoint":
                 web_endpoints.append(enriched)
+            elif node_type == "verified_finding":
+                verified_findings.append(enriched)
             elif node_type == "failure":
                 failures.append(enriched)
 
@@ -204,6 +208,39 @@ class ReportGenerator:
                     }
                 )
 
+        # Fail-safe: ensure any active session in the graph is represented in verified_findings
+        for sess in sessions:
+            sess_id = str(sess.get("session_id", ""))
+            sess_host = sess.get("host_ip", "")
+            if not any(str(f.get("session_id", "")) == sess_id for f in verified_findings):
+                # Find matching edge
+                matching_edge = next(
+                    (
+                        e
+                        for e in exploit_edges
+                        if e.get("target") == f"session:{sess_id}"
+                        or (e.get("result") == "success" and sess_host in e.get("source", ""))
+                    ),
+                    None,
+                )
+                module = matching_edge.get("module", "exploit") if matching_edge else "exploit"
+                service_id = matching_edge.get("source", f"service:{sess_host}") if matching_edge else f"service:{sess_host}"
+                verified_findings.append(
+                    {
+                        "node_id": f"finding:session_{sess_id}",
+                        "node_type": "verified_finding",
+                        "finding_id": f"session_{sess_id}",
+                        "category": "remote_code_execution",
+                        "title": f"Remote Code Execution (Interactive Shell #{sess_id})",
+                        "description": f"Successfully established interactive session on {sess_host} via {module}.",
+                        "evidence": f"Active session {sess_id} on {sess_host} with privilege '{sess.get('privilege', 'user')}'.",
+                        "target_service_id": service_id,
+                        "host_ip": sess_host,
+                        "module_used": module,
+                        "session_id": sess_id,
+                    }
+                )
+
         return {
             "run_id": self._run_id,
             "generated_at": _utc_now_str(),
@@ -212,6 +249,7 @@ class ReportGenerator:
                 "total_services": len(services),
                 "total_cves": len(cves),
                 "total_sessions": len(sessions),
+                "total_verified_findings": len(verified_findings),
                 "total_web_endpoints": len(web_endpoints),
                 "total_exploit_attempts": len(exploit_edges),
                 "successful_exploits": sum(
@@ -222,6 +260,7 @@ class ReportGenerator:
             "services": services,
             "cves": sorted(cves, key=lambda x: x.get("cvss_score", 0.0), reverse=True),
             "sessions": sessions,
+            "verified_findings": verified_findings,
             "web_endpoints": web_endpoints,
             "exploit_attempts": exploit_edges,
             "failures": failures,
@@ -377,6 +416,22 @@ class ReportGenerator:
                 + ("…" if len(cve.get("description", "")) > 120 else ""),
             )
 
+        # ── Verified Findings table ──────────────────────────────
+        finding_rows = ""
+        for f in data.get("verified_findings", []):
+            cat = f.get("category", "general_vulnerability").replace("_", " ").title()
+            evidence = (f.get("evidence", "") or "")[:120]
+            if len(f.get("evidence", "") or "") > 120:
+                evidence += "…"
+            finding_rows += _tr(
+                f.get("title", "Verified Finding"),
+                cat,
+                f.get("target_service_id", "") or f.get("host_ip", ""),
+                evidence,
+                f.get("module_used", ""),
+                f.get("cve_id", "") or "N/A",
+            )
+
         # ── Session table ─────────────────────────────────────────
         sess_rows = ""
         for sess in data["sessions"]:
@@ -422,11 +477,11 @@ class ReportGenerator:
         topology = data.get("topology", {"nodes": [], "edges": []})
         topo_json = html.escape(json.dumps(topology))
 
-        pwned = s["successful_exploits"] > 0
+        pwned = s["successful_exploits"] > 0 or s.get("total_verified_findings", 0) > 0
         status_badge = (
-            '<span class="badge success">PWNED ✅</span>'
+            '<span class="badge success">VULNERABILITIES VERIFIED ✅</span>'
             if pwned
-            else '<span class="badge failure">NOT COMPROMISED ❌</span>'
+            else '<span class="badge failure">NO VULNERABILITIES CONFIRMED ❌</span>'
         )
 
         return f"""<!DOCTYPE html>
@@ -515,17 +570,29 @@ class ReportGenerator:
       <div class="value">{s['total_cves']}</div><div class="label">CVEs</div>
     </div>
     <div class="card">
+      <div class="value" style="color:#e066ff">{s.get('total_verified_findings', 0)}</div><div class="label">Verified Findings</div>
+    </div>
+    <div class="card">
       <div class="value">{s['total_sessions']}</div><div class="label">Sessions</div>
     </div>
     <div class="card">
       <div class="value">{s['total_exploit_attempts']}</div>
-      <div class="label">Exploit Attempts</div>
-    </div>
-    <div class="card">
-      <div class="value" style="color:#3fb950">{s['successful_exploits']}</div>
-      <div class="label">Successful</div>
+      <div class="label">Attempts</div>
     </div>
   </div>
+
+  <h3>🛡️ Verified Security Findings</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Finding Title</th><th>Category</th><th>Target Service</th>
+        <th>Evidence / Output</th><th>Module Used</th><th>CVE</th>
+      </tr>
+    </thead>
+    <tbody>
+      {finding_rows if finding_rows else '<tr><td colspan="6" style="color:#8b949e">No verified security findings recorded.</td></tr>'}
+    </tbody>
+  </table>
 
   <h3>🗇 Network Topology</h3>
   <div id="topology-canvas"></div>
@@ -641,11 +708,35 @@ class ReportGenerator:
             f"| Hosts discovered | {s['total_hosts']} |",
             f"| Services discovered | {s['total_services']} |",
             f"| CVE candidates | {s['total_cves']} |",
+            f"| Verified findings | **{s.get('total_verified_findings', 0)}** |",
             f"| Sessions obtained | {s['total_sessions']} |",
             f"| Exploit attempts | {s['total_exploit_attempts']} |",
             f"| Successful exploits | **{s['successful_exploits']}** |",
             "",
         ]
+
+        # Verified Findings
+        lines += ["## Verified Security Findings", ""]
+        verified = data.get("verified_findings", [])
+        if verified:
+            lines += [
+                "| Finding Title | Category | Target Service | Evidence | CVE | Module Used |",
+                "|---------------|----------|----------------|----------|-----|-------------|",
+            ]
+            for f in verified:
+                cat = f.get("category", "general_vulnerability").replace("_", " ").title()
+                ev = (f.get("evidence", "") or "")[:80]
+                lines.append(
+                    f"| {f.get('title', 'Verified Finding')} "
+                    f"| {cat} "
+                    f"| {f.get('target_service_id', '') or f.get('host_ip', '')} "
+                    f"| {ev} "
+                    f"| {f.get('cve_id', '') or 'N/A'} "
+                    f"| `{f.get('module_used', '')}` |"
+                )
+        else:
+            lines.append("*No verified security findings recorded.*")
+        lines.append("")
 
         # Services
         lines += ["## Discovered Services", ""]

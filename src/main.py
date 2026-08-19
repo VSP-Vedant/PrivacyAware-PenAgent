@@ -137,6 +137,7 @@ def main() -> None:
         "current_phase": "recon",
         "exploit_attempts": [],
         "sessions": [],
+        "verified_findings": [],
         "step_count": 0,
         "max_steps": MAX_TOTAL_STEPS,
         "cloud_tokens_used": 0,

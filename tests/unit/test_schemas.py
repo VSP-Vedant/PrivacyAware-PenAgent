@@ -45,6 +45,10 @@ class TestNodeType:
         """Verify WEB_ENDPOINT enum has correct string value."""
         assert NodeType.WEB_ENDPOINT.value == "web_endpoint"
 
+    def test_verified_finding_value(self) -> None:
+        """Verify VERIFIED_FINDING enum has correct string value."""
+        assert NodeType.VERIFIED_FINDING.value == "verified_finding"
+
 
 class TestEdgeType:
     """Tests for EdgeType enum."""
@@ -57,6 +61,7 @@ class TestEdgeType:
             "vulnerable_to",
             "exploit_attempt",
             "escalated_to",
+            "demonstrates",
         }
         actual = {e.value for e in EdgeType}
         assert actual == expected
@@ -299,13 +304,39 @@ class TestErrorType:
     """Tests for ErrorType enum."""
 
     def test_all_error_types_exist(self) -> None:
-        """Verify all error types match ARCHITECTURE.md spec."""
+        """Verify all error types match specification."""
         expected = {
             "no_session",
             "timeout",
             "connection_refused",
             "auth_failed",
             "module_not_found",
+            "validation_failed",
         }
         actual = {e.value for e in ErrorType}
         assert actual == expected
+
+
+class TestVerifiedFinding:
+    """Tests for VerifiedFinding dataclass and FindingCategory enum."""
+
+    def test_create_verified_finding(self) -> None:
+        """Verify VerifiedFinding creation and serialization."""
+        from src.state.schemas import FindingCategory, VerifiedFinding
+
+        finding = VerifiedFinding(
+            finding_id="rce_001",
+            category=FindingCategory.REMOTE_CODE_EXECUTION.value,
+            title="Remote Code Execution",
+            description="Command execution confirmed",
+            evidence="uid=0(root)",
+            target_service_id="service:10.10.10.5:21/tcp",
+            host_ip="10.10.10.5",
+            port=21,
+            module_used="exploit/unix/ftp/vsftpd_234_backdoor",
+        )
+        assert finding.finding_id == "rce_001"
+        assert finding.node_id == "finding:rce_001"
+        d = finding.to_dict()
+        assert d["node_type"] == "verified_finding"
+        assert d["category"] == "remote_code_execution"

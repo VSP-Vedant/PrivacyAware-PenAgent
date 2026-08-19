@@ -444,7 +444,7 @@ def exploit_node(state: PenTestState) -> PenTestState:
 
 
 def verify_node(state: PenTestState) -> PenTestState:
-    """Verify the last exploit attempt via MSF session confirmation.
+    """Verify the exploit attempts using the pluggable validation architecture.
 
     If ``state['verify_enabled']`` is False (--no-verify ablation mode)
     the verification step is skipped and the exploit result is trusted as-is.
@@ -455,44 +455,62 @@ def verify_node(state: PenTestState) -> PenTestState:
     if not state["exploit_attempts"]:
         return state
 
+    if "verified_findings" not in state:
+        state["verified_findings"] = []
+
     # ── Week 19-22: ablation flag ──────────────────────────────────
     if not state.get("verify_enabled", True):
         logger.info("Verification disabled (ablation mode) — trusting exploit result")
         state["step_count"] += 1
         return state
 
-    last_attempt = state["exploit_attempts"][-1]
-
-    # Use the full VerificationAgent (not the stub)
-    # Reuse an msfrpcd connection for session verification if available.
+    # Use the pluggable VerificationAgent
     msf_client = _get_msf_client()
     agent = VerificationAgent(
         attack_graph=state["attack_graph"],
         msf_client=msf_client,
     )
-    result = agent.verify_attempt(last_attempt)
 
-    # Update the state with the verified attempt
-    state["exploit_attempts"][-1] = result.attempt
+    # Verify all attempts in state that have been executed
+    for idx, attempt in enumerate(state["exploit_attempts"]):
+        result = agent.verify_attempt(attempt)
+        state["exploit_attempts"][idx] = result.attempt
 
-    # Record post-mortem in findings for replan context
-    if result.post_mortem is not None:
-        state["findings"].append(result.post_mortem.to_dict())
+        # Record verified finding in state
+        if result.success and result.finding is not None:
+            finding_dict = result.finding.to_dict()
+            if not any(
+                f.get("finding_id") == result.finding.finding_id
+                or (
+                    f.get("target_service_id") == result.finding.target_service_id
+                    and f.get("module_used") == result.finding.module_used
+                )
+                for f in state["verified_findings"]
+            ):
+                state["verified_findings"].append(finding_dict)
+                if not any(f.get("finding_id") == result.finding.finding_id for f in state["findings"]):
+                    state["findings"].append(finding_dict)
 
-    # Track confirmed sessions
-    if result.success and result.session_id is not None:
-        from src.state.schemas import SessionNode
+        # Record post-mortem in findings for replan context
+        if result.post_mortem is not None:
+            state["findings"].append(result.post_mortem.to_dict())
 
-        session_node = SessionNode(
-            session_id=str(result.session_id),
-            host_ip=(
-                last_attempt.target_service_id.split(":")[1]
-                if ":" in last_attempt.target_service_id
-                else state["target"]
-            ),
-            privilege=result.privilege,
-        )
-        state["sessions"].append(session_node)
+        # Track confirmed sessions
+        if result.success and result.session_id is not None:
+            from src.state.schemas import SessionNode
+
+            session_id_str = str(result.session_id)
+            if not any(s.session_id == session_id_str for s in state["sessions"]):
+                session_node = SessionNode(
+                    session_id=session_id_str,
+                    host_ip=(
+                        attempt.target_service_id.split(":")[1]
+                        if ":" in attempt.target_service_id
+                        else state["target"]
+                    ),
+                    privilege=result.privilege,
+                )
+                state["sessions"].append(session_node)
 
     state["step_count"] += 1
     return state

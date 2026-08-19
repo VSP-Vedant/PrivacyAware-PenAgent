@@ -10,11 +10,13 @@
   "cloud_cost_usd": 0.05,
   "exploit_attempts": 0,
   "successful_exploits": 0,
+  "verified_findings_count": 0,
+  "findings_by_category": "{}",
   "exploit_redundancy_rate": 0.0,
   "hosts_discovered": 0,
   "services_discovered": 0,
   "cves_mapped": 0,
-  "run_start_ts": 1786893138.549503,
-  "run_end_ts": 1786893138.5593386,
-  "duration_seconds": 0.009835481643676758
+  "run_start_ts": 1787165891.0615625,
+  "run_end_ts": 1787165891.0624075,
+  "duration_seconds": 0.0008449554443359375
 }

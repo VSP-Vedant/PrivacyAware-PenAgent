@@ -23,6 +23,7 @@ class NodeType(Enum):
     WEB_ENDPOINT = "web_endpoint"
     CVE = "cve"
     SESSION = "session"
+    VERIFIED_FINDING = "verified_finding"
 
 
 class EdgeType(Enum):
@@ -33,6 +34,20 @@ class EdgeType(Enum):
     VULNERABLE_TO = "vulnerable_to"
     EXPLOIT_ATTEMPT = "exploit_attempt"
     ESCALATED_TO = "escalated_to"
+    DEMONSTRATES = "demonstrates"
+
+
+class FindingCategory(Enum):
+    """Categories of verified security capabilities and findings."""
+
+    REMOTE_CODE_EXECUTION = "remote_code_execution"
+    AUTHENTICATION = "authentication"
+    INFORMATION_DISCLOSURE = "information_disclosure"
+    FILE_SHARING = "file_sharing"
+    DATABASE = "database"
+    WEB_APPLICATION = "web_application"
+    REMOTE_ADMIN = "remote_admin"
+    GENERAL_VULNERABILITY = "general_vulnerability"
 
 
 class PrivilegeLevel(Enum):
@@ -60,6 +75,7 @@ class ErrorType(Enum):
     CONNECTION_REFUSED = "connection_refused"
     AUTH_FAILED = "auth_failed"
     MODULE_NOT_FOUND = "module_not_found"
+    VALIDATION_FAILED = "validation_failed"
 
 
 def _utc_now() -> str:
@@ -260,6 +276,58 @@ class SessionNode:
         return data
 
 
+@dataclass
+class VerifiedFinding:
+    """A verified security capability, vulnerability, or access finding.
+
+    Attributes:
+        finding_id: Unique finding identifier.
+        category: Capability category (FindingCategory or string).
+        title: Short descriptive title of the finding.
+        description: Detailed explanation of the verified capability.
+        evidence: Concrete proof / output demonstrating the capability.
+        target_service_id: Node ID of the affected service.
+        host_ip: IP of the affected target host.
+        port: Port number of the service.
+        module_used: Module / scanner used to verify the finding.
+        cve_id: Associated CVE ID if applicable.
+        cvss_score: CVSS severity score.
+        session_id: Metasploit session ID if an interactive shell was spawned.
+        discovered_at: ISO timestamp when the finding was verified.
+    """
+
+    finding_id: str
+    category: str
+    title: str
+    description: str
+    evidence: str = ""
+    target_service_id: str = ""
+    host_ip: str = ""
+    port: int = 0
+    module_used: str = ""
+    cve_id: str = ""
+    cvss_score: float = 0.0
+    session_id: str = ""
+    discovered_at: str = field(default_factory=_utc_now)
+
+    @property
+    def node_id(self) -> str:
+        """Generate unique node ID for the attack graph."""
+        return f"finding:{self.finding_id}"
+
+    @property
+    def node_type(self) -> NodeType:
+        """Return the node type enum."""
+        return NodeType.VERIFIED_FINDING
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize to dictionary for graph storage."""
+        data = asdict(self)
+        data["node_type"] = self.node_type.value
+        data["node_id"] = self.node_id
+        return data
+
+
 # ── Edge / Record Schemas ────────────────────────────────────
 
 
@@ -271,10 +339,12 @@ class ExploitAttempt:
         target_service_id: Node ID of the targeted service.
         module_used: Metasploit module path used.
         payload: Payload used in the exploit.
-        result: Outcome of the attempt.
+        result: Outcome of the attempt ('success', 'failure', 'error').
         session_id: Session ID if successful, empty if failed.
         error_type: Type of error if failed, empty if successful.
         raw_error: Raw error message from the tool.
+        finding_category: Category of capability demonstrated on success.
+        evidence: Concrete proof / output evidence extracted.
         timestamp: ISO timestamp of the attempt.
     """
 
@@ -285,6 +355,8 @@ class ExploitAttempt:
     session_id: str = ""
     error_type: str = ""
     raw_error: str = ""
+    finding_category: str = ""
+    evidence: str = ""
     timestamp: str = field(default_factory=_utc_now)
 
     def to_dict(self) -> dict[str, Any]:
@@ -333,6 +405,7 @@ class PenTestState(TypedDict):
     current_phase: str
     exploit_attempts: list[ExploitAttempt]
     sessions: list[SessionNode]
+    verified_findings: list[dict[str, Any]]
     step_count: int
     max_steps: int
     cloud_tokens_used: int

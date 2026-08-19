@@ -21,14 +21,18 @@ from src.state.schemas import (
     EdgeType,
     ExploitAttempt,
     ExploitPostMortem,
+    FindingCategory,
     PrivilegeLevel,
     SessionNode,
+    VerifiedFinding,
 )
 from src.tools.metasploit_rpc import (
     MetasploitRPCClient,
     MetasploitRPCError,
     SessionInfo,
 )
+from src.validators.base import ValidationOutcome
+from src.validators.registry import ValidatorRegistry, default_registry
 
 logger = logging.getLogger(__name__)
 
@@ -49,9 +53,12 @@ class VerificationResult:
 
     Attributes:
         attempt: The original exploit attempt that was verified.
-        success: Whether a live session was confirmed.
-        privilege: Privilege level of the confirmed session.
+        success: Whether the capability / finding was confirmed.
+        privilege: Privilege level of the confirmed session/finding.
         session_id: Numeric Metasploit session ID if found.
+        finding: Structured VerifiedFinding object if verified.
+        category: Capability category string.
+        evidence: Concrete proof / output evidence string.
         post_mortem: Structured post-mortem if the attempt failed.
     """
 
@@ -59,34 +66,40 @@ class VerificationResult:
     success: bool = False
     privilege: str = PrivilegeLevel.NONE.value
     session_id: int | None = None
+    finding: VerifiedFinding | None = None
+    category: str = FindingCategory.GENERAL_VULNERABILITY.value
+    evidence: str = ""
     post_mortem: ExploitPostMortem | None = None
 
 
 class VerificationAgent:
-    """Verifies exploit results via live Metasploit session queries.
+    """Verifies security findings across multiple capability categories.
 
-    Replaces the Week 12 stub with a full implementation that:
-    1. Calls ``sessions.list`` to confirm a session exists for the target.
-    2. Runs the ``id`` command to determine privilege level.
-    3. Generates a structured JSON post-mortem if the session is absent.
-    4. Writes a negative edge to the attack graph on failure.
-    5. Updates the session node with confirmed privilege on success.
+    Uses a pluggable ValidatorRegistry to evaluate:
+    1. Remote Code Execution (interactive sessions or verified command output)
+    2. Authentication & Credential Discovery (valid logins, discovered creds)
+    3. Information Disclosure (metadata, user enumeration, configs)
+    4. File Sharing Access (SMB, NFS, anonymous FTP)
+    5. Database Access (authentication, queries, schema dumps)
+    6. Web Application vulnerabilities (LFI, SQLi, panel bypass)
+    7. Remote Administration Services (VNC, X11, RDP)
 
     Args:
         attack_graph: The shared attack graph.
         msf_client: Pre-configured, connected Metasploit RPC client.
-            If ``None``, verification falls back to a no-MSF mode
-            (used in testing / recon-only mode).
+        registry: ValidatorRegistry managing capability validators.
     """
 
     def __init__(
         self,
         attack_graph: AttackGraph,
         msf_client: MetasploitRPCClient | None = None,
+        registry: ValidatorRegistry | None = None,
     ) -> None:
         """Initialise the VerificationAgent."""
         self._graph = attack_graph
         self._msf = msf_client
+        self._registry = registry or default_registry
 
     # ── Public API ────────────────────────────────────────────────
 
@@ -106,7 +119,7 @@ class VerificationAgent:
         return result.attempt
 
     def verify_attempt(self, attempt: ExploitAttempt) -> VerificationResult:
-        """Full verification pipeline for an exploit attempt.
+        """Full pluggable verification pipeline for an exploit attempt.
 
         Args:
             attempt: The exploit attempt to verify.
@@ -120,58 +133,123 @@ class VerificationAgent:
             attempt.target_service_id,
         )
 
-        # If the exploit agent already marked it as failed, skip MSF check
-        if attempt.result == "failure" and not attempt.session_id:
-            return self._handle_failure(attempt, reason="exploit_reported_failure")
+        target_ip = self._extract_target_ip(attempt.target_service_id)
+
+        # Context for validation
+        context = {
+            "session_id": attempt.session_id,
+            "target_service_id": attempt.target_service_id,
+            "payload": attempt.payload,
+            "error_type": attempt.error_type,
+            "raw_error": attempt.raw_error,
+        }
+        raw_payload = attempt.evidence or attempt.raw_error or attempt.result
 
         # If no MSF client is available (testing / recon-only mode)
         if self._msf is None or not self._msf.is_connected():
-            logger.warning(
-                "No MSF client available — using attempt.result as-is "
-                "(session_id=%s)",
+            logger.debug(
+                "Evaluating attempt via offline validator registry (session_id=%s)",
                 attempt.session_id,
             )
-            return self._no_msf_verify(attempt)
-
-        # ── Step 1: Session confirmation ──────────────────────────
-        target_ip = self._extract_target_ip(attempt.target_service_id)
-        session = self._find_session(target_ip)
-
-        if session is None:
-            # Exploit agent said success but no session found — post-mortem
-            logger.warning(
-                "No active session found for %s — exploit may have failed silently",
-                target_ip,
+            outcome = self._registry.validate(
+                target=target_ip,
+                service_id=attempt.target_service_id,
+                module_path=attempt.module_used,
+                raw_output=raw_payload,
+                msf_client=None,
+                context=context,
             )
-            attempt.result = "failure"
-            attempt.error_type = "no_session"
-            return self._handle_failure(
-                attempt,
-                reason="no_session_after_exploit",
-            )
+            if outcome.is_valid:
+                return self._record_successful_verification(attempt, outcome, target_ip)
+            if attempt.result == "success" and attempt.session_id:
+                return self._no_msf_verify(attempt)
+            return self._handle_failure(attempt, reason=attempt.error_type or "validation_failed")
 
-        # ── Step 2: Privilege check ───────────────────────────────
-        privilege = self._check_privilege(session.session_id)
+        # ── Step 1: Pluggable Capability Validation ──────────────────
+        outcome = self._registry.validate(
+            target=target_ip,
+            service_id=attempt.target_service_id,
+            module_path=attempt.module_used,
+            raw_output=raw_payload,
+            msf_client=self._msf,
+            context=context,
+        )
 
-        # ── Step 3: Update graph session node ────────────────────
-        self._update_session_node(session, privilege)
+        if outcome.is_valid:
+            return self._record_successful_verification(attempt, outcome, target_ip)
 
-        # Update the attempt record
+        # ── Step 2: Handle Validation Failure ────────────────────────
+        attempt.result = "failure"
+        attempt.error_type = outcome.error_type or attempt.error_type or "validation_failed"
+        return self._handle_failure(
+            attempt,
+            reason=attempt.error_type,
+        )
+
+    def _record_successful_verification(
+        self,
+        attempt: ExploitAttempt,
+        outcome: ValidationOutcome,
+        target_ip: str,
+    ) -> VerificationResult:
+        """Record verified finding and active session (if any) in the attack graph."""
+        import uuid
+
+        # Update attempt fields
         attempt.result = "success"
-        attempt.session_id = str(session.session_id)
+        attempt.finding_category = outcome.category.value
+        attempt.evidence = outcome.evidence
+        if outcome.session_id is not None:
+            attempt.session_id = str(outcome.session_id)
+
+        # Create VerifiedFinding
+        finding_id = f"{outcome.category.value}_{uuid.uuid4().hex[:8]}"
+        port = 0
+        if ":" in attempt.target_service_id:
+            try:
+                parts = attempt.target_service_id.split(":")
+                if len(parts) >= 3 and "/" in parts[2]:
+                    port = int(parts[2].split("/")[0])
+            except Exception:
+                port = 0
+
+        finding = VerifiedFinding(
+            finding_id=finding_id,
+            category=outcome.category.value,
+            title=outcome.title or f"Verified {outcome.category.value.replace('_', ' ').title()}",
+            description=outcome.description,
+            evidence=outcome.evidence,
+            target_service_id=attempt.target_service_id,
+            host_ip=target_ip,
+            port=port,
+            module_used=attempt.module_used,
+            session_id=str(outcome.session_id) if outcome.session_id is not None else "",
+        )
+        self._graph.add_verified_finding(finding)
+
+        # If a live session was established, update session node in graph
+        if outcome.session_id is not None and self._msf is not None:
+            session_info = self._find_session(target_ip)
+            if session_info is not None:
+                self._update_session_node(session_info, outcome.privilege)
 
         logger.info(
-            "VERIFIED SUCCESS: session %d on %s — privilege=%s",
-            session.session_id,
+            "VERIFIED FINDING [%s]: %s on %s (privilege=%s, session=%s)",
+            outcome.category.value,
+            outcome.title,
             target_ip,
-            privilege,
+            outcome.privilege,
+            outcome.session_id,
         )
 
         return VerificationResult(
             attempt=attempt,
             success=True,
-            privilege=privilege,
-            session_id=session.session_id,
+            privilege=outcome.privilege,
+            session_id=outcome.session_id,
+            finding=finding,
+            category=outcome.category.value,
+            evidence=outcome.evidence,
         )
 
     # ── Internal helpers ──────────────────────────────────────────

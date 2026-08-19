@@ -18,6 +18,7 @@ from src.state.schemas import (
     HostNode,
     ServiceNode,
     SessionNode,
+    VerifiedFinding,
     WebEndpointNode,
 )
 
@@ -110,6 +111,26 @@ class AttackGraph:
             session.node_id,
             type=EdgeType.ESCALATED_TO.value,
         )
+        self.persistence.save_graph(self.graph)
+
+    def add_verified_finding(self, finding: VerifiedFinding) -> None:
+        """Add a verified finding node and link it to the service or host.
+
+        Creates a ``DEMONSTRATES`` edge from the service (or host) to the finding.
+
+        Args:
+            finding: The verified finding to record in the graph.
+        """
+        self.graph.add_node(finding.node_id, **finding.to_dict())
+        source_id = finding.target_service_id or f"host:{finding.host_ip}"
+        if self.graph.has_node(source_id):
+            self.graph.add_edge(
+                source_id,
+                finding.node_id,
+                type=EdgeType.DEMONSTRATES.value,
+                category=finding.category,
+                title=finding.title,
+            )
         self.persistence.save_graph(self.graph)
 
     # ── Failure tracking ─────────────────────────────────────────
@@ -216,6 +237,26 @@ class AttackGraph:
             data.get("node_type") == "session"
             for _, data in self.graph.nodes(data=True)
         )
+
+    def get_verified_findings(
+        self, category: str | None = None
+    ) -> list[dict[str, Any]]:
+        """Return all verified finding nodes in the attack graph.
+
+        Args:
+            category: Optional capability category filter.
+
+        Returns:
+            List of verified finding node data dictionaries.
+        """
+        findings = [
+            data
+            for _, data in self.graph.nodes(data=True)
+            if data.get("node_type") == "verified_finding"
+        ]
+        if category:
+            findings = [f for f in findings if f.get("category") == category]
+        return findings
 
     def get_web_endpoints(self) -> list[dict[str, Any]]:
         """Return all web endpoint nodes in the attack graph.

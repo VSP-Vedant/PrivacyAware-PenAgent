@@ -70,6 +70,8 @@ class RunMetrics:
         cloud_cost_usd: Total USD cost of cloud LLM calls.
         exploit_attempts: Total exploit attempts made.
         successful_exploits: Number of attempts that produced a session.
+        verified_findings_count: Total verified security findings across all categories.
+        findings_by_category: Dictionary of finding counts keyed by category.
         exploit_redundancy_rate: Fraction of attempts reusing a prior (module, service).
         hosts_discovered: Number of hosts found by recon.
         services_discovered: Number of services enumerated.
@@ -90,6 +92,8 @@ class RunMetrics:
     cloud_cost_usd: float = 0.0
     exploit_attempts: int = 0
     successful_exploits: int = 0
+    verified_findings_count: int = 0
+    findings_by_category: dict[str, int] = field(default_factory=dict)
     exploit_redundancy_rate: float = 0.0
     hosts_discovered: int = 0
     services_discovered: int = 0
@@ -102,6 +106,7 @@ class RunMetrics:
         """Serialise to a flat dictionary (JSON-safe)."""
         d = asdict(self)
         d["milestones_hit"] = json.dumps(d["milestones_hit"])
+        d["findings_by_category"] = json.dumps(d["findings_by_category"])
         return d
 
 
@@ -145,6 +150,13 @@ def compute_metrics(
     services = ag.get_exploitable_services()
     sessions = ag.get_sessions()
     failed_attempts = ag.get_failed_attempts()
+    verified_findings = ag.get_verified_findings()
+
+    # Finding breakdown by category
+    findings_by_cat: dict[str, int] = {}
+    for f in verified_findings:
+        c = f.get("category", "general_vulnerability")
+        findings_by_cat[c] = findings_by_cat.get(c, 0) + 1
 
     # CVE count — iterate graph nodes directly
     cves = [
@@ -174,7 +186,7 @@ def compute_metrics(
         milestones_hit.append(_MILESTONE_SESSION)
 
     progress_rate = len(milestones_hit) / len(_ALL_MILESTONES)
-    success = _MILESTONE_SESSION in milestones_hit
+    success = _MILESTONE_SESSION in milestones_hit or len(verified_findings) > 0
 
     # ── TTFS ─────────────────────────────────────────────────────
     ttfs: float | None = None
@@ -221,6 +233,8 @@ def compute_metrics(
         cloud_cost_usd=cloud_cost,
         exploit_attempts=len(exploit_records),
         successful_exploits=successful_exploits,
+        verified_findings_count=len(verified_findings),
+        findings_by_category=findings_by_cat,
         exploit_redundancy_rate=redundancy_rate,
         hosts_discovered=len(hosts),
         services_discovered=len(services),

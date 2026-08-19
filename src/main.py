@@ -151,6 +151,9 @@ def main() -> None:
         "termination_reason": "",
         "nmap_scan_type": scan_type,  # passed to recon_node
         "mode": args.mode,
+        # Loop-guard counters — must be explicitly initialized to 0 so that
+        # the >= 2 comparisons in check_success() and analyze_graph_node()
+        # always work correctly (state.get() defaults are a safety net only).
         "consecutive_empty_exploit_cycles": 0,
         "consecutive_llm_failures": 0,
     }

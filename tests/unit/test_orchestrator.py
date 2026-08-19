@@ -26,6 +26,13 @@ def empty_state() -> PenTestState:
         "router_enabled": True,
         "verify_enabled": True,
         "run_start_ts": time.time(),
+        "start_time": "",
+        "end_time": "",
+        "termination_reason": "",
+        "nmap_scan_type": "quick",
+        "mode": "full",
+        "consecutive_empty_exploit_cycles": 0,
+        "consecutive_llm_failures": 0,
     }
 
 
@@ -57,7 +64,19 @@ def test_check_success_with_failure(empty_state: PenTestState) -> None:
 
 
 def test_check_success_max_steps(empty_state: PenTestState) -> None:
-    for i in range(18):
+    # Exhaust the step budget (step_count >= max_steps triggers "report")
+    empty_state["step_count"] = 10  # == max_steps=10
+    empty_state["exploit_attempts"].append(
+        ExploitAttempt(
+            target_service_id="svc-1", module_used="test", result="failure"
+        )
+    )
+    assert check_success(empty_state) == "report"
+
+
+def test_check_success_max_attempts(empty_state: PenTestState) -> None:
+    # Exhaust the exploit attempts cap (_MAX_EXPLOIT_ATTEMPTS = 18)
+    for _ in range(18):
         empty_state["exploit_attempts"].append(
             ExploitAttempt(
                 target_service_id="svc-1", module_used="test", result="failure"

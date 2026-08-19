@@ -713,6 +713,16 @@ def build_graph(
                                     ↓
                                  exploit  (retry loop)
     """
+    # Reset the module-level ExploitAgent so each new graph invocation
+    # starts with a completely clean _globally_tried / _attempt_history.
+    # Without this reset, a second run in the same Python process reuses
+    # the stale agent from the previous run — all candidates are filtered
+    # by _globally_tried, ExploitAgent makes 0 new attempts every cycle,
+    # consecutive_empty_exploit_cycles hits 2, and the run terminates
+    # without exploiting anything (even against a freshly booted target).
+    global _exploit_agent
+    _exploit_agent = None
+
     # NOTE: msfrpcd connection is intentionally NOT attempted here.
     # build_graph() is called for ALL run modes (including recon-only)
     # and must never block on network I/O. The ExploitAgent manages

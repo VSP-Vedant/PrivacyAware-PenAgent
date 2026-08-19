@@ -440,7 +440,9 @@ class MetasploitRPCClient:
                 )
 
         # --- poll for session --------------------------------------------
-        session_id = self._wait_for_session(options.rhosts, timeout=30)
+        # 60 s: Metasploitable2 exploits (vsftpd backdoor, samba/usermap_script,
+        # distcc_exec, etc.) can take 35-60 s to land a shell via RPC overhead.
+        session_id = self._wait_for_session(options.rhosts, timeout=60)
 
         if session_id is not None:
             logger.critical(

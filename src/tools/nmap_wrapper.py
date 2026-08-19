@@ -24,10 +24,12 @@ logger = logging.getLogger(__name__)
 # --min-rate 1000  : never probe slower than 1000 pkts/sec (prevents VPN stall)
 # --max-retries 1  : don't retry filtered ports more than once (3x faster)
 SCAN_PRESETS: dict[str, str] = {
-    "default": "-sV -sC --min-rate 1000 --max-retries 1",
-    "full": "-sV -sC -O -p- --min-rate 2000 --max-retries 1",
-    "quick": "-sV --top-ports 100 --min-rate 1000 --max-retries 1",
-    "stealth": "-sS -sV --min-rate 500 --max-retries 1",
+    # -Pn: skip host-discovery ping — required for HTB/VPN targets where ICMP
+    #       is filtered; without this nmap marks the host "down" and returns 0 results.
+    "default": "-Pn -sV -sC --min-rate 1000 --max-retries 1",
+    "full": "-Pn -sV -sC -O -p- --min-rate 2000 --max-retries 1",
+    "quick": "-Pn -sV --top-ports 100 --min-rate 1000 --max-retries 1",
+    "stealth": "-Pn -sS -sV --min-rate 500 --max-retries 1",
 }
 
 

@@ -212,19 +212,28 @@ class ReportGenerator:
         for sess in sessions:
             sess_id = str(sess.get("session_id", ""))
             sess_host = sess.get("host_ip", "")
-            if not any(str(f.get("session_id", "")) == sess_id for f in verified_findings):
-                # Find matching edge
+            if not any(
+                str(f.get("session_id", "")) == sess_id for f in verified_findings
+            ):
+                # Only match edges that explicitly target this session node
                 matching_edge = next(
                     (
                         e
                         for e in exploit_edges
                         if e.get("target") == f"session:{sess_id}"
-                        or (e.get("result") == "success" and sess_host in e.get("source", ""))
                     ),
                     None,
                 )
-                module = matching_edge.get("module", "exploit") if matching_edge else "exploit"
-                service_id = matching_edge.get("source", f"service:{sess_host}") if matching_edge else f"service:{sess_host}"
+                module = (
+                    matching_edge.get("module", "unknown exploit")
+                    if matching_edge
+                    else "unknown exploit"
+                )
+                service_id = (
+                    matching_edge.get("source", f"service:{sess_host}")
+                    if matching_edge
+                    else f"service:{sess_host}"
+                )
                 verified_findings.append(
                     {
                         "node_id": f"finding:session_{sess_id}",
@@ -292,14 +301,6 @@ class ReportGenerator:
             logger.warning("Could not read post-mortems: %s", exc)
             post_mortems = []
 
-        # Build a fast lookup: target_service_id → list of CVE IDs
-        cve_lookup: dict[str, list[str]] = {}
-        for node_id, data in self._graph.graph.nodes(data=True):
-            if data.get("node_type") == "cve":
-                # Find services that have an edge to this CVE
-                for pred in self._graph.graph.predecessors(node_id):
-                    cve_lookup.setdefault(pred, []).append(data.get("cve_id", node_id))
-
         # Build a fast lookup: module_used + target_service → post-mortem hypothesis
         pm_lookup: dict[str, str] = {}
         for pm in post_mortems:
@@ -311,16 +312,29 @@ class ReportGenerator:
             service_id = rec.get("target_service_id", "")
             module = rec.get("module_used", "")
             result = rec.get("result", "unknown")
+            error_type = rec.get("error_type", "")
             pm_key = f"{module}::{service_id}"
+
+            # Fix: scope CVEs to this specific service using graph edges
+            service_cves = [
+                c.get("cve_id", "")
+                for c in self._graph.get_cves_for_service(service_id)
+            ]
+
+            # Fix: display attempted module name for validation failures
+            display_module = module
+            if not display_module and error_type == "validation_failed":
+                display_module = "[Invalid LLM suggestion]"
+
             event: dict[str, Any] = {
                 "timestamp": rec.get("timestamp", ""),
-                "module": module,
+                "module": display_module,
                 "service": service_id,
                 "payload": rec.get("payload", ""),
                 "result": result,
                 "session_id": rec.get("session_id", ""),
-                "error_type": rec.get("error_type", ""),
-                "cves": cve_lookup.get(service_id, []),
+                "error_type": error_type,
+                "cves": service_cves,
                 "post_mortem": pm_lookup.get(pm_key, ""),
             }
             timeline.append(event)
@@ -334,15 +348,30 @@ class ReportGenerator:
     def _build_topology_data(self) -> dict[str, Any]:
         """Serialise the attack graph as a node-link structure for visualisation.
 
+        Filters out failure and individual CVE nodes to avoid overcrowding.
+        Only hosts, services, sessions, verified findings, and web endpoints
+        are shown.
+
         Returns:
             Dict with ``nodes`` and ``edges`` keys suitable for D3.js rendering.
         """
         g = self._graph.graph
+        # Only show important node types to avoid overcrowding
+        _VISIBLE_TYPES = {
+            "host",
+            "service",
+            "session",
+            "verified_finding",
+            "web_endpoint",
+        }
         nodes: list[dict[str, Any]] = []
-        edges: list[dict[str, Any]] = []
+        visible_ids: set[str] = set()
 
         for node_id, data in g.nodes(data=True):
             node_type = data.get("node_type", "unknown")
+            if node_type not in _VISIBLE_TYPES:
+                continue
+            visible_ids.add(node_id)
             nodes.append(
                 {
                     "id": node_id,
@@ -352,21 +381,24 @@ class ReportGenerator:
                         or data.get("cve_id")
                         or data.get("session_id")
                         or data.get("url")
+                        or data.get("title", "")[:24]
                         or node_id.split(":")[-1][:24]
                     ),
                     "color": _node_color(node_type),
                 }
             )
 
+        edges: list[dict[str, Any]] = []
         for src, dst, edge_data in g.edges(data=True):
-            edges.append(
-                {
-                    "source": src,
-                    "target": dst,
-                    "type": edge_data.get("type", ""),
-                    "result": edge_data.get("result", ""),
-                }
-            )
+            if src in visible_ids and dst in visible_ids:
+                edges.append(
+                    {
+                        "source": src,
+                        "target": dst,
+                        "type": edge_data.get("type", ""),
+                        "result": edge_data.get("result", ""),
+                    }
+                )
 
         return {"nodes": nodes, "edges": edges}
 
@@ -450,11 +482,15 @@ class ReportGenerator:
         for exp in data["exploit_attempts"]:
             result = exp.get("result", "unknown")
             icon = "✅" if result == "success" else "❌"
+            module = exp.get("module", "")
+            error_type = exp.get("error_type", "")
+            if not module and error_type == "validation_failed":
+                module = "[Invalid LLM suggestion]"
             exp_rows += _tr(
                 exp.get("source", ""),
-                exp.get("module", ""),
+                module,
                 f"{icon} {result}",
-                exp.get("error_type", ""),
+                error_type,
             )
 
         # ── Timeline table ────────────────────────────────────────
@@ -595,6 +631,10 @@ class ReportGenerator:
   </table>
 
   <h3>🗇 Network Topology</h3>
+  <div style="display:flex;gap:1rem;align-items:center;margin:0.5rem 0;font-size:0.75rem;color:#8b949e">
+    <span>🔵 Host</span><span>🟢 Service</span><span>🔴 Session</span>
+    <span>🟣 Finding</span><span style="color:#666">— filtered: failures and CVE nodes hidden</span>
+  </div>
   <div id="topology-canvas"></div>
   <script>
   (function() {{
@@ -605,7 +645,8 @@ class ReportGenerator:
     if (n === 0) {{ canvas.innerHTML = '<p style="color:#8b949e;padding:1rem">No topology data — run recon first.</p>'; return; }}
     var positions = topo.nodes.map(function(node, i) {{
       var angle = (2 * Math.PI * i) / n;
-      return {{ x: W/2 + (W * 0.38) * Math.cos(angle), y: H/2 + (H * 0.38) * Math.sin(angle) }};
+      var radius = Math.min(W, H) * 0.38;
+      return {{ x: W/2 + radius * Math.cos(angle), y: H/2 + radius * Math.sin(angle) }};
     }});
     var svg = '<svg width="' + W + '" height="' + H + '" style="position:absolute;top:0;left:0">';
     topo.edges.forEach(function(e) {{
@@ -617,7 +658,8 @@ class ReportGenerator:
     }});
     topo.nodes.forEach(function(node, i) {{
       var p = positions[i];
-      svg += '<circle cx="' + p.x + '" cy="' + p.y + '" r="7" fill="' + node.color + '" stroke="#21262d" stroke-width="1.5"/>';
+      var r = node.type === 'host' ? 10 : 7;
+      svg += '<circle cx="' + p.x + '" cy="' + p.y + '" r="' + r + '" fill="' + node.color + '" stroke="#21262d" stroke-width="1.5"/>';
       svg += '<text x="' + p.x + '" y="' + (p.y + 18) + '" fill="#8b949e" font-size="9" text-anchor="middle">' + (node.label || '').substring(0, 20) + '</text>';
     }});
     svg += '</svg>';
@@ -724,7 +766,9 @@ class ReportGenerator:
                 "|---------------|----------|----------------|----------|-----|-------------|",
             ]
             for f in verified:
-                cat = f.get("category", "general_vulnerability").replace("_", " ").title()
+                cat = (
+                    f.get("category", "general_vulnerability").replace("_", " ").title()
+                )
                 ev = (f.get("evidence", "") or "")[:80]
                 lines.append(
                     f"| {f.get('title', 'Verified Finding')} "

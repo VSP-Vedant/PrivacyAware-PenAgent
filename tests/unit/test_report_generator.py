@@ -14,7 +14,6 @@ from src.reporting.report_generator import ReportGenerator
 from src.state.attack_graph import AttackGraph
 from src.state.schemas import HostNode, ServiceNode, SessionNode
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------

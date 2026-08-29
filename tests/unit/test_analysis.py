@@ -14,7 +14,6 @@ from typing import Any
 
 import pytest
 
-
 # ── Fixtures ─────────────────────────────────────────────────
 
 
@@ -331,7 +330,7 @@ class TestFormatVarianceTable:
     """Tests for variance.format_variance_table."""
 
     def test_returns_rows(self, sample_records: list) -> None:
-        from data.analysis.variance import variance_summary, format_variance_table
+        from data.analysis.variance import format_variance_table, variance_summary
 
         summary = variance_summary(sample_records, ["progress_rate", "ttfs_seconds"])
         rows = format_variance_table(summary)

@@ -88,7 +88,9 @@ class InfoDisclosureValidator(BaseValidator):
                     evidence=evidence,
                 )
 
-        if "discovered" in output_str.lower() and ("user" in output_str.lower() or "version" in output_str.lower()):
+        if "discovered" in output_str.lower() and (
+            "user" in output_str.lower() or "version" in output_str.lower()
+        ):
             return ValidationOutcome(
                 is_valid=True,
                 category=FindingCategory.INFORMATION_DISCLOSURE,

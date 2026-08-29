@@ -5,21 +5,19 @@ Owner: Vedant (Member C)
 
 from __future__ import annotations
 
-import pytest
+from pathlib import Path
 from unittest.mock import MagicMock
+
+import pytest
 
 from src.agents.verification_agent import VerificationAgent, VerificationResult
 from src.state.attack_graph import AttackGraph
 from src.state.schemas import ExploitAttempt, ExploitPostMortem, PrivilegeLevel
 from src.tools.metasploit_rpc import SessionInfo
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
-
-
-from pathlib import Path
 
 
 @pytest.fixture

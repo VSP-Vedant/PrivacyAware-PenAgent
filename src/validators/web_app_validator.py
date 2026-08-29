@@ -20,9 +20,13 @@ logger = logging.getLogger(__name__)
 
 # Patterns matching web application exploit outcomes
 _WEB_APP_PATTERNS = [
-    re.compile(r"root:x:0:0:root:[^:]+:[^\n]+", re.IGNORECASE),  # /etc/passwd in web response
+    re.compile(
+        r"root:x:0:0:root:[^:]+:[^\n]+", re.IGNORECASE
+    ),  # /etc/passwd in web response
     re.compile(r"<\?php\b", re.IGNORECASE),  # Source code disclosure
-    re.compile(r"HTTP/\d\.\d\s+200\s+OK.*(?:admin|dashboard|management)", re.IGNORECASE),
+    re.compile(
+        r"HTTP/\d\.\d\s+200\s+OK.*(?:admin|dashboard|management)", re.IGNORECASE
+    ),
     re.compile(r"LFI\s+verified|file\s+read\s+successful", re.IGNORECASE),
     re.compile(r"SQL\s+injection\s+confirmed|UNION\s+SELECT", re.IGNORECASE),
     re.compile(r"Discovered\s+critical\s+endpoint:\s*([^\n\r]+)", re.IGNORECASE),
@@ -92,7 +96,10 @@ class WebAppValidator(BaseValidator):
                     evidence=evidence,
                 )
 
-        if "vulnerability verified" in output_str.lower() or "file read" in output_str.lower():
+        if (
+            "vulnerability verified" in output_str.lower()
+            or "file read" in output_str.lower()
+        ):
             return ValidationOutcome(
                 is_valid=True,
                 category=FindingCategory.WEB_APPLICATION,

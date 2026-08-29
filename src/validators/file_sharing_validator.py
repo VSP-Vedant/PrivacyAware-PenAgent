@@ -20,10 +20,14 @@ logger = logging.getLogger(__name__)
 # Patterns matching file sharing and storage access evidence
 _FILE_SHARING_PATTERNS = [
     re.compile(r"READ\s+access|WRITE\s+access|READ/WRITE", re.IGNORECASE),
-    re.compile(r"Anonymous\s+read\s+allowed|Anonymous\s+login\s+successful", re.IGNORECASE),
+    re.compile(
+        r"Anonymous\s+read\s+allowed|Anonymous\s+login\s+successful", re.IGNORECASE
+    ),
     re.compile(r"NFS\s+Export:\s*([^\n\r]+)", re.IGNORECASE),
     re.compile(r"Share:\s*\\\\([^\n\r]+)", re.IGNORECASE),
-    re.compile(r"\[\+\]\s+([A-Za-z0-9_\-\$\.]+)\s+-\s+\((DISK|IPC|PRINT)\)", re.IGNORECASE),
+    re.compile(
+        r"\[\+\]\s+([A-Za-z0-9_\-\$\.]+)\s+-\s+\((DISK|IPC|PRINT)\)", re.IGNORECASE
+    ),
     re.compile(r"230\s+Anonymous\s+access\s+granted", re.IGNORECASE),
     re.compile(r"directory\s+listing:\s*([^\n\r]+)", re.IGNORECASE),
 ]
@@ -86,7 +90,9 @@ class FileSharingValidator(BaseValidator):
                     evidence=evidence,
                 )
 
-        if "anonymous" in output_str.lower() and ("access" in output_str.lower() or "granted" in output_str.lower()):
+        if "anonymous" in output_str.lower() and (
+            "access" in output_str.lower() or "granted" in output_str.lower()
+        ):
             return ValidationOutcome(
                 is_valid=True,
                 category=FindingCategory.FILE_SHARING,

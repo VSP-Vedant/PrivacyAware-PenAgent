@@ -318,6 +318,7 @@ class ReconAgent:
         """
         import re
         from urllib.parse import urlparse
+
         import requests
 
         # Ordered: most specific first to avoid mis-classification

@@ -1,6 +1,7 @@
 """Unit tests for WebScanner wrapper."""
 
 from unittest.mock import MagicMock, patch
+
 import pytest
 
 from src.tools.web_scanner import WebScanner

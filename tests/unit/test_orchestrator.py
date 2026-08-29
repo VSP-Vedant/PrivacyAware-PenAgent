@@ -67,9 +67,7 @@ def test_check_success_max_steps(empty_state: PenTestState) -> None:
     # Exhaust the step budget (step_count >= max_steps triggers "report")
     empty_state["step_count"] = 10  # == max_steps=10
     empty_state["exploit_attempts"].append(
-        ExploitAttempt(
-            target_service_id="svc-1", module_used="test", result="failure"
-        )
+        ExploitAttempt(target_service_id="svc-1", module_used="test", result="failure")
     )
     assert check_success(empty_state) == "report"
 

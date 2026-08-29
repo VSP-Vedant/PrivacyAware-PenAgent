@@ -75,7 +75,11 @@ class RCEValidator(BaseValidator):
         session_id: int | None = None
         privilege = PrivilegeLevel.NONE.value
 
-        if msf_client is not None and hasattr(msf_client, "is_connected") and msf_client.is_connected():
+        if (
+            msf_client is not None
+            and hasattr(msf_client, "is_connected")
+            and msf_client.is_connected()
+        ):
             try:
                 sessions = msf_client.list_sessions()
                 # Check for session on target matching context or module
@@ -98,7 +102,14 @@ class RCEValidator(BaseValidator):
                 logger.debug("Session verification query failed: %s", exc)
 
         # Only trust context session_id in offline mode when msf_client is not connected
-        if session_id is None and (msf_client is None or not getattr(msf_client, "is_connected", lambda: False)()) and ctx.get("session_id"):
+        if (
+            session_id is None
+            and (
+                msf_client is None
+                or not getattr(msf_client, "is_connected", lambda: False)()
+            )
+            and ctx.get("session_id")
+        ):
             try:
                 session_id = int(ctx["session_id"])
                 privilege = ctx.get("privilege", PrivilegeLevel.USER.value)
@@ -123,8 +134,14 @@ class RCEValidator(BaseValidator):
         for pattern in _COMMAND_EXEC_PATTERNS:
             match = pattern.search(output_str)
             if match:
-                evidence_snippet = output_str[max(0, match.start() - 50) : min(len(output_str), match.end() + 150)]
-                priv = PrivilegeLevel.ROOT.value if _ROOT_PATTERN.search(output_str) else PrivilegeLevel.USER.value
+                evidence_snippet = output_str[
+                    max(0, match.start() - 50) : min(len(output_str), match.end() + 150)
+                ]
+                priv = (
+                    PrivilegeLevel.ROOT.value
+                    if _ROOT_PATTERN.search(output_str)
+                    else PrivilegeLevel.USER.value
+                )
                 return ValidationOutcome(
                     is_valid=True,
                     category=FindingCategory.REMOTE_CODE_EXECUTION,

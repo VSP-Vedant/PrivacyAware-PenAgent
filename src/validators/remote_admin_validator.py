@@ -19,12 +19,20 @@ logger = logging.getLogger(__name__)
 
 # Patterns matching remote administration access
 _REMOTE_ADMIN_PATTERNS = [
-    re.compile(r"VNC\s+server\s+requires\s+NO\s+authentication|Null\s+Authentication", re.IGNORECASE),
-    re.compile(r"Open\s+X11\s+Server\s+Access|X11\s+display\s+accessible", re.IGNORECASE),
+    re.compile(
+        r"VNC\s+server\s+requires\s+NO\s+authentication|Null\s+Authentication",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"Open\s+X11\s+Server\s+Access|X11\s+display\s+accessible", re.IGNORECASE
+    ),
     re.compile(r"Connected\s+without\s+authentication", re.IGNORECASE),
     re.compile(r"rlogin\s+session\s+established|rexec\s+successful", re.IGNORECASE),
     re.compile(r"remote\s+access\s+established", re.IGNORECASE),
-    re.compile(r"\[\+\]\s+[\d\.\:]+\s+-\s+VNC\s+server\s+security\s+types?:\s*None", re.IGNORECASE),
+    re.compile(
+        r"\[\+\]\s+[\d\.\:]+\s+-\s+VNC\s+server\s+security\s+types?:\s*None",
+        re.IGNORECASE,
+    ),
 ]
 
 

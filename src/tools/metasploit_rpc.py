@@ -368,9 +368,7 @@ class MetasploitRPCClient:
         try:
             resp = self._rpc("module.compatible_payloads", module_path)
             payloads = resp.get(b"payloads", resp.get("payloads", []))
-            return [
-                p.decode() if isinstance(p, bytes) else str(p) for p in payloads
-            ]
+            return [p.decode() if isinstance(p, bytes) else str(p) for p in payloads]
         except Exception as exc:
             logger.debug(
                 "Could not query compatible payloads for %s: %s", module_path, exc
@@ -411,11 +409,7 @@ class MetasploitRPCClient:
                 # Pick the best compatible payload:
                 # 1. HTTP-staged x86 meterpreter (MSF default for Linux RCE, vsftpd, etc.)
                 chosen = next(
-                    (
-                        p
-                        for p in compatible
-                        if "http/x86/meterpreter_reverse_tcp" in p
-                    ),
+                    (p for p in compatible if "http/x86/meterpreter_reverse_tcp" in p),
                     None,
                 )
                 # 2. Standard Unix command reverse shells (Samba, UnrealIRCd, Distcc, etc.)
@@ -753,7 +747,7 @@ class MetasploitRPCClient:
                 "Not connected to msfrpcd — call connect() first"
             )
 
-    def _extract_host_from_info(self, info: dict) -> str:
+    def _extract_host_from_info(self, info: dict[Any, Any]) -> str:
         """Extract IP address from a raw session dictionary."""
         for key in (b"target_host", "target_host", b"session_host", "session_host"):
             val = info.get(key)

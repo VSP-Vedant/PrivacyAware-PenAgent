@@ -20,8 +20,14 @@ logger = logging.getLogger(__name__)
 # Patterns matching credential discoveries across MSF and custom tools
 _CRED_PATTERNS = [
     re.compile(r"Success:\s*['\"]([^'\":]+):([^'\"]*)['\"]", re.IGNORECASE),
-    re.compile(r"Login\s+Successful:\s*['\"]?([^'\"\s:]+)[:\s]+([^'\"\s]+)['\"]?", re.IGNORECASE),
-    re.compile(r"\[\+\]\s+[\d\.\:]+\s*-\s*Success:\s*['\"]([^'\":]+):([^'\"]*)['\"]", re.IGNORECASE),
+    re.compile(
+        r"Login\s+Successful:\s*['\"]?([^'\"\s:]+)[:\s]+([^'\"\s]+)['\"]?",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\[\+\]\s+[\d\.\:]+\s*-\s*Success:\s*['\"]([^'\":]+):([^'\"]*)['\"]",
+        re.IGNORECASE,
+    ),
     re.compile(r"Valid\s+credentials\s+found:\s*(\w+)[\s\:\/]+([^\s]+)", re.IGNORECASE),
     re.compile(r"credentials?\s+found:\s*(\w+)\s*[:\/]\s*([^\s]+)", re.IGNORECASE),
     re.compile(r"authentication\s+bypass\s+successful", re.IGNORECASE),
@@ -112,8 +118,17 @@ class AuthValidator(BaseValidator):
             except (ValueError, TypeError):
                 session_id = None
 
-        if credentials or session_id is not None or "auth bypass" in output_str.lower() or "login found" in output_str.lower():
-            cred_str = ", ".join(f"{c['username']}:{c['password']}" for c in credentials) if credentials else "Credentials verified"
+        if (
+            credentials
+            or session_id is not None
+            or "auth bypass" in output_str.lower()
+            or "login found" in output_str.lower()
+        ):
+            cred_str = (
+                ", ".join(f"{c['username']}:{c['password']}" for c in credentials)
+                if credentials
+                else "Credentials verified"
+            )
             evidence = f"Valid authentication verified on {target} ({service_id}) via {module_path}. Credentials: {cred_str}"
             if session_id:
                 evidence += f" (Spawned session #{session_id})"
@@ -129,7 +144,14 @@ class AuthValidator(BaseValidator):
                 evidence=evidence,
                 credentials=credentials,
                 session_id=session_id,
-                privilege="user" if not any(c.get("username") in ("root", "admin", "administrator") for c in credentials) else "root",
+                privilege=(
+                    "user"
+                    if not any(
+                        c.get("username") in ("root", "admin", "administrator")
+                        for c in credentials
+                    )
+                    else "root"
+                ),
             )
 
         return ValidationOutcome(

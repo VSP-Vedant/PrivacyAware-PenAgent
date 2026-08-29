@@ -28,7 +28,6 @@ from src.evaluation.metrics import (
 from src.state.attack_graph import AttackGraph
 from src.state.schemas import CVENode, HostNode, ServiceNode, SessionNode
 
-
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------

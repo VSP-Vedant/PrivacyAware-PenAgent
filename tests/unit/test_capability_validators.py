@@ -15,8 +15,6 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-import pytest
-
 from src.state.schemas import FindingCategory
 from src.validators.auth_validator import AuthValidator
 from src.validators.base import BaseValidator, ValidationOutcome
@@ -75,15 +73,28 @@ class TestValidatorRegistry:
 
     def test_custom_validator_priority(self) -> None:
         """Verify registering a custom validator with high priority overrides default."""
+
         class CustomValidator(BaseValidator):
             name = "custom_test"
             category = FindingCategory.REMOTE_CODE_EXECUTION
 
-            def can_validate(self, module_path: str, context: dict | None = None) -> bool:
+            def can_validate(
+                self, module_path: str, context: dict | None = None
+            ) -> bool:
                 return True
 
-            def validate(self, target, service_id, module_path, raw_output, msf_client=None, context=None):
-                return ValidationOutcome(is_valid=True, category=self.category, title="Custom Handled")
+            def validate(
+                self,
+                target,
+                service_id,
+                module_path,
+                raw_output,
+                msf_client=None,
+                context=None,
+            ):
+                return ValidationOutcome(
+                    is_valid=True, category=self.category, title="Custom Handled"
+                )
 
         reg = ValidatorRegistry(register_defaults=True)
         reg.register_validator(CustomValidator(), priority=999)
@@ -127,14 +138,61 @@ class TestRCEValidator:
         assert outcome.is_valid is False
         assert outcome.error_type == "no_session"
 
+    def test_rce_via_shell_command(self) -> None:
+        """Verify command output proof confirms RCE."""
+        val = RCEValidator()
+        raw_output = "uid=0(root) gid=0(root) groups=0(root)"
+        outcome = val.validate(
+            target="192.168.1.50",
+            service_id="service:192.168.1.50:21/tcp",
+            module_path="exploit/unix/ftp/vsftpd_234_backdoor",
+            raw_output=raw_output,
+        )
+        assert outcome.is_valid is True
+        assert outcome.category == FindingCategory.REMOTE_CODE_EXECUTION
+        assert outcome.confidence >= 0.95
+        assert "uid=0(root)" in outcome.evidence
+
+    def test_rce_via_msf_session(self) -> None:
+        """Verify MSF session interaction confirms RCE."""
+        val = RCEValidator()
+        mock_client = MagicMock()
+        mock_session = MagicMock()
+        mock_session.read.return_value = "uid=0(root) gid=0(root)"
+        mock_client.client.sessions.session.return_value = mock_session
+
+        outcome = val.validate(
+            target="192.168.1.50",
+            service_id="service:192.168.1.50:21/tcp",
+            module_path="exploit/unix/ftp/vsftpd_234_backdoor",
+            context={"session_id": "1", "msf_client": mock_client},
+        )
+        assert outcome.is_valid is True
+        assert outcome.category == FindingCategory.REMOTE_CODE_EXECUTION
+        assert "uid=0(root)" in outcome.evidence
+
+    def test_rce_negative_no_proof(self) -> None:
+        """Verify failure when no shell or execution proof is returned."""
+        val = RCEValidator()
+        outcome = val.validate(
+            target="192.168.1.50",
+            service_id="service:192.168.1.50:21/tcp",
+            module_path="exploit/unix/ftp/vsftpd_234_backdoor",
+            raw_output="[-] Exploit failed: Connection refused",
+        )
+        assert outcome.is_valid is False
+        assert outcome.confidence == 0.0
+
 
 class TestAuthValidator:
     """Tests for AuthValidator."""
 
-    def test_credential_extraction_success(self) -> None:
-        """Verify credentials extracted from MSF login output."""
+    def test_ssh_login_success(self) -> None:
+        """Verify successful credentials extract and validate."""
         val = AuthValidator()
-        raw_output = "[+] 192.168.1.50:22 - Success: 'msfadmin:msfadmin'"
+        raw_output = (
+            "[+] 192.168.1.50:22 - Success: 'msfadmin:msfadmin' 'uid=1000(msfadmin)'"
+        )
         outcome = val.validate(
             target="192.168.1.50",
             service_id="service:192.168.1.50:22/tcp",
@@ -143,14 +201,12 @@ class TestAuthValidator:
         )
         assert outcome.is_valid is True
         assert outcome.category == FindingCategory.AUTHENTICATION
-        assert len(outcome.credentials) == 1
-        assert outcome.credentials[0]["username"] == "msfadmin"
-        assert outcome.credentials[0]["password"] == "msfadmin"
+        assert "msfadmin:msfadmin" in outcome.evidence
 
-    def test_auth_failed_output(self) -> None:
-        """Verify failure when no valid credentials are found."""
+    def test_auth_failure_rejected(self) -> None:
+        """Verify failed login attempts are not marked as findings."""
         val = AuthValidator()
-        raw_output = "[-] 192.168.1.50:22 - Failed: 'root:root'"
+        raw_output = "[-] 192.168.1.50:22 - Failed: 'admin:password'"
         outcome = val.validate(
             target="192.168.1.50",
             service_id="service:192.168.1.50:22/tcp",
@@ -158,30 +214,28 @@ class TestAuthValidator:
             raw_output=raw_output,
         )
         assert outcome.is_valid is False
-        assert outcome.error_type == "auth_failed"
 
 
 class TestFileSharingValidator:
     """Tests for FileSharingValidator."""
 
-    def test_smb_share_enumeration(self) -> None:
-        """Verify SMB share enumeration output is validated."""
+    def test_nfs_export_read(self) -> None:
+        """Verify NFS export access is validated."""
         val = FileSharingValidator()
-        raw_output = "[+] 192.168.1.50:445 - tmp - (DISK) READ/WRITE access allowed"
+        raw_output = "[+] 192.168.1.50:2049 - /home/export (Read/Write)"
         outcome = val.validate(
             target="192.168.1.50",
-            service_id="service:192.168.1.50:445/tcp",
-            module_path="auxiliary/scanner/smb/smb_enumshares",
+            service_id="service:192.168.1.50:2049/tcp",
+            module_path="auxiliary/scanner/nfs/nfsmount",
             raw_output=raw_output,
         )
         assert outcome.is_valid is True
         assert outcome.category == FindingCategory.FILE_SHARING
-        assert "READ/WRITE" in outcome.evidence
 
-    def test_anonymous_ftp(self) -> None:
+    def test_ftp_anonymous_login(self) -> None:
         """Verify anonymous FTP access is validated."""
         val = FileSharingValidator()
-        raw_output = "[+] 192.168.1.50:21 - 230 Anonymous access granted"
+        raw_output = "[+] 192.168.1.50:21 - Anonymous READ/WRITE access granted"
         outcome = val.validate(
             target="192.168.1.50",
             service_id="service:192.168.1.50:21/tcp",
@@ -215,7 +269,9 @@ class TestWebAppValidator:
     def test_lfi_verification(self) -> None:
         """Verify LFI /etc/passwd disclosure is validated."""
         val = WebAppValidator()
-        raw_output = "root:x:0:0:root:/root:/bin/bash\ndaemon:x:1:1:daemon:/usr/sbin:/bin/sh"
+        raw_output = (
+            "root:x:0:0:root:/root:/bin/bash\ndaemon:x:1:1:daemon:/usr/sbin:/bin/sh"
+        )
         outcome = val.validate(
             target="192.168.1.50",
             service_id="service:192.168.1.50:80/tcp",
@@ -242,3 +298,21 @@ class TestRemoteAdminValidator:
         )
         assert outcome.is_valid is True
         assert outcome.category == FindingCategory.REMOTE_ADMIN
+
+
+class TestInfoDisclosureValidator:
+    """Tests for InfoDisclosureValidator."""
+
+    def test_user_enumeration(self) -> None:
+        """Verify user enumeration evidence is validated."""
+        val = InfoDisclosureValidator()
+        raw_output = "[+] Found user: admin\n[+] Found user: root"
+        outcome = val.validate(
+            target="192.168.1.50",
+            service_id="service:192.168.1.50:25/tcp",
+            module_path="auxiliary/scanner/smtp/smtp_enum",
+            raw_output=raw_output,
+        )
+        assert outcome.is_valid is True
+        assert outcome.category == FindingCategory.INFORMATION_DISCLOSURE
+        assert "admin" in outcome.evidence

@@ -488,7 +488,10 @@ def verify_node(state: PenTestState) -> PenTestState:
                 for f in state["verified_findings"]
             ):
                 state["verified_findings"].append(finding_dict)
-                if not any(f.get("finding_id") == result.finding.finding_id for f in state["findings"]):
+                if not any(
+                    f.get("finding_id") == result.finding.finding_id
+                    for f in state["findings"]
+                ):
                     state["findings"].append(finding_dict)
 
         # Record post-mortem in findings for replan context

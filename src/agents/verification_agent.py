@@ -163,7 +163,9 @@ class VerificationAgent:
                 return self._record_successful_verification(attempt, outcome, target_ip)
             if attempt.result == "success" and attempt.session_id:
                 return self._no_msf_verify(attempt)
-            return self._handle_failure(attempt, reason=attempt.error_type or "validation_failed")
+            return self._handle_failure(
+                attempt, reason=attempt.error_type or "validation_failed"
+            )
 
         # ── Step 1: Pluggable Capability Validation ──────────────────
         outcome = self._registry.validate(
@@ -180,7 +182,9 @@ class VerificationAgent:
 
         # ── Step 2: Handle Validation Failure ────────────────────────
         attempt.result = "failure"
-        attempt.error_type = outcome.error_type or attempt.error_type or "validation_failed"
+        attempt.error_type = (
+            outcome.error_type or attempt.error_type or "validation_failed"
+        )
         return self._handle_failure(
             attempt,
             reason=attempt.error_type,
@@ -216,14 +220,17 @@ class VerificationAgent:
         finding = VerifiedFinding(
             finding_id=finding_id,
             category=outcome.category.value,
-            title=outcome.title or f"Verified {outcome.category.value.replace('_', ' ').title()}",
+            title=outcome.title
+            or f"Verified {outcome.category.value.replace('_', ' ').title()}",
             description=outcome.description,
             evidence=outcome.evidence,
             target_service_id=attempt.target_service_id,
             host_ip=target_ip,
             port=port,
             module_used=attempt.module_used,
-            session_id=str(outcome.session_id) if outcome.session_id is not None else "",
+            session_id=(
+                str(outcome.session_id) if outcome.session_id is not None else ""
+            ),
         )
         self._graph.add_verified_finding(finding)
 

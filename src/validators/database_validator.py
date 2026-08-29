@@ -87,7 +87,9 @@ class DatabaseValidator(BaseValidator):
                     evidence=evidence,
                 )
 
-        if "database" in output_str.lower() and ("success" in output_str.lower() or "connected" in output_str.lower()):
+        if "database" in output_str.lower() and (
+            "success" in output_str.lower() or "connected" in output_str.lower()
+        ):
             return ValidationOutcome(
                 is_valid=True,
                 category=FindingCategory.DATABASE,

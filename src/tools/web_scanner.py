@@ -9,10 +9,9 @@ Owner: Vedant (Member C) / Shared Security Foundation
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from urllib.parse import urljoin
 
 import requests
-
-from urllib.parse import urljoin
 
 from src.state.schemas import CVENode, WebEndpointNode
 from src.utils.logging_config import setup_logger

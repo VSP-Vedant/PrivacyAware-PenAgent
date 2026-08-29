@@ -16,7 +16,7 @@
   "hosts_discovered": 0,
   "services_discovered": 0,
   "cves_mapped": 0,
-  "run_start_ts": 1787985655.0470383,
-  "run_end_ts": 1787985655.0507493,
-  "duration_seconds": 0.0037109851837158203
+  "run_start_ts": 1787987265.991245,
+  "run_end_ts": 1787987266.0078373,
+  "duration_seconds": 0.01659226417541504
 }

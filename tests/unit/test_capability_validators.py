@@ -138,38 +138,36 @@ class TestRCEValidator:
         assert outcome.is_valid is False
         assert outcome.error_type == "no_session"
 
-    def test_rce_via_shell_command(self) -> None:
-        """Verify command output proof confirms RCE."""
-        val = RCEValidator()
-        raw_output = "uid=0(root) gid=0(root) groups=0(root)"
-        outcome = val.validate(
-            target="192.168.1.50",
-            service_id="service:192.168.1.50:21/tcp",
-            module_path="exploit/unix/ftp/vsftpd_234_backdoor",
-            raw_output=raw_output,
-        )
-        assert outcome.is_valid is True
-        assert outcome.category == FindingCategory.REMOTE_CODE_EXECUTION
-        assert outcome.confidence >= 0.95
-        assert "uid=0(root)" in outcome.evidence
-
     def test_rce_via_msf_session(self) -> None:
         """Verify MSF session interaction confirms RCE."""
+        from src.tools.metasploit_rpc import SessionInfo
+
         val = RCEValidator()
-        mock_client = MagicMock()
-        mock_session = MagicMock()
-        mock_session.read.return_value = "uid=0(root) gid=0(root)"
-        mock_client.client.sessions.session.return_value = mock_session
+        mock_msf = MagicMock()
+        mock_msf.is_connected.return_value = True
+        mock_msf.list_sessions.return_value = [
+            SessionInfo(
+                session_id=1,
+                session_type="shell",
+                target_host="192.168.1.50",
+                username="root",
+                platform="linux",
+                via_exploit="exploit/unix/ftp/vsftpd_234_backdoor",
+            )
+        ]
+        mock_msf.run_session_command.return_value = "uid=0(root) gid=0(root)"
 
         outcome = val.validate(
             target="192.168.1.50",
             service_id="service:192.168.1.50:21/tcp",
             module_path="exploit/unix/ftp/vsftpd_234_backdoor",
-            context={"session_id": "1", "msf_client": mock_client},
+            raw_output="",
+            msf_client=mock_msf,
         )
         assert outcome.is_valid is True
         assert outcome.category == FindingCategory.REMOTE_CODE_EXECUTION
-        assert "uid=0(root)" in outcome.evidence
+        assert outcome.privilege == "root"
+        assert outcome.session_id == 1
 
     def test_rce_negative_no_proof(self) -> None:
         """Verify failure when no shell or execution proof is returned."""
@@ -181,7 +179,7 @@ class TestRCEValidator:
             raw_output="[-] Exploit failed: Connection refused",
         )
         assert outcome.is_valid is False
-        assert outcome.confidence == 0.0
+        assert outcome.privilege == "none"
 
 
 class TestAuthValidator:

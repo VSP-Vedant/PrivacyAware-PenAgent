@@ -12,6 +12,11 @@ Provides three sub-modules:
 Owner: Parth (Member D) — Week 23–28 deliverable
 """
 
+from data.analysis.ablation import (
+    aggregate_by_condition,
+    build_ablation_table,
+    generate_ablation_charts,
+)
 from data.analysis.aggregator import (
     build_comparison_table,
     compute_aggregate_stats,
@@ -33,9 +38,12 @@ from data.analysis.variance import (
 )
 
 __all__ = [
+    "aggregate_by_condition",
+    "build_ablation_table",
     "build_comparison_table",
     "compute_aggregate_stats",
     "format_variance_table",
+    "generate_ablation_charts",
     "generate_all_charts",
     "generate_exploit_efficiency_chart",
     "generate_routing_pie_chart",

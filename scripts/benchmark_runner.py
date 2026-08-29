@@ -10,6 +10,7 @@ from __future__ import annotations
 import os
 import time
 from typing import Any
+
 import requests
 from dotenv import load_dotenv
 
@@ -150,10 +151,7 @@ def test_openai_model(model_name: str, prompt: str) -> dict[str, Any]:
                 "error": None,
             }
         else:
-            err_msg = (
-                f"OpenAI HTTP {response.status_code}: "
-                f"{response.text[:50]}"
-            )
+            err_msg = f"OpenAI HTTP {response.status_code}: " f"{response.text[:50]}"
             return {
                 "success": False,
                 "latency_sec": 0.0,
@@ -242,9 +240,7 @@ def run_benchmarks() -> None:
         f.write(f"> **Date:** {time.strftime('%Y-%m-%d %H:%M:%S')}\n\n")
 
         f.write("## 1. Summary of Latency (seconds)\n\n")
-        f.write(
-            "| Prompt / Task | llama3:8b | mistral:7b | gpt-4o-mini | gpt-4o |\n"
-        )
+        f.write("| Prompt / Task | llama3:8b | mistral:7b | gpt-4o-mini | gpt-4o |\n")
         f.write("|---|---|---|---|---|\n")
 
         for p_id, p_data in results.items():

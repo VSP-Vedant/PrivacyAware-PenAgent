@@ -117,6 +117,7 @@ def test_analyze_graph_node_router_disabled(
         task_input=ANY,
         task_type=ANY,
         force_route="LOCAL",
+        local_task_type="generation",
     )
 
 

@@ -224,6 +224,7 @@ def analyze_graph_node(state: PenTestState) -> PenTestState:
         decision = _router.route(
             task_input=task_input,
             task_type=TaskType.MULTI_CVE_CHAIN,
+            local_task_type="generation",
         )
         # Record the decision
         state["routing_decisions"].append(
@@ -246,6 +247,7 @@ def analyze_graph_node(state: PenTestState) -> PenTestState:
             task_input=task_input,
             task_type=TaskType.MULTI_CVE_CHAIN,
             force_route="LOCAL",
+            local_task_type="generation",
         )
         state["routing_decisions"].append(
             {
@@ -369,36 +371,8 @@ def exploit_node(state: PenTestState) -> PenTestState:
     # Build ExploitCandidate objects from LLM suggestions
     llm_candidates: list[ExploitCandidate] | None = None
     raw_candidates = state.get("exploit_candidates", [])
-    if raw_candidates:
-        llm_candidates = []
-        for svc in exploitable:
-            host_ip = svc.get("host_ip", state["target"])
-            port = svc.get("port", 0)
-            service_id = svc.get("node_id", f"service:{host_ip}:{port}/tcp")
-            for cand in raw_candidates:
-                llm_candidates.append(
-                    ExploitCandidate(
-                        module_path=cand.get("module_path", ""),
-                        service_id=service_id,
-                        target_ip=host_ip,
-                        target_port=port,
-                        payload=cand.get("payload", "generic/shell_reverse_tcp"),
-                        confidence=float(cand.get("confidence", 0.5)),
-                        source="llm",
-                    )
-                )
-        # Clear candidates after consumption
-        state["exploit_candidates"] = []
 
-    # If LLM generated no valid candidates, set llm_candidates = None so
-    # ExploitAgent auto-discovers real verified modules from Metasploit RPC
-    if llm_candidates is not None and len(llm_candidates) == 0:
-        logger.info(
-            "No valid LLM candidates available — falling back to Metasploit/SearchSploit discovery"
-        )
-        llm_candidates = None
-
-    # Connect to msfrpcd; falls back to None (SearchSploit) if unreachable.
+    # Connect to msfrpcd FIRST — needed for LLM module validation below.
     msf_client = _get_msf_client()
 
     # Reuse (or lazily create) the module-level ExploitAgent so its
@@ -414,6 +388,97 @@ def exploit_node(state: PenTestState) -> PenTestState:
         logger.info(
             "Reusing persistent ExploitAgent — %d module/service pairs already tried",
             len(_exploit_agent._globally_tried),
+        )
+
+    if raw_candidates:
+        llm_candidates = []
+
+        # ── Pre-validate LLM modules against MSF ─────────────────────
+        # This catches hallucinated paths BEFORE they waste attempt budget.
+        validated_candidates: list[dict] = []
+        for cand in raw_candidates:
+            module_path = cand.get("module_path", "")
+            if not module_path:
+                continue
+            if _exploit_agent is not None:
+                if not _exploit_agent.validate_module(module_path):
+                    logger.warning(
+                        "Rejected LLM module (does not exist in MSF): %s",
+                        module_path,
+                    )
+                    print(f"HALLUCINATION: Module does not exist: {module_path}")
+                    continue
+            validated_candidates.append(cand)
+
+        logger.info(
+            "LLM modules after MSF validation: %d/%d passed",
+            len(validated_candidates),
+            len(raw_candidates),
+        )
+
+        # ── Service-type relevance matching ────────────────────────────
+        # Instead of applying every LLM module to every service, match
+        # modules to services by keywords in the module path.
+        _SERVICE_MODULE_KEYWORDS: dict[str, list[str]] = {
+            "ssh": ["ssh"],
+            "http": ["http", "apache", "web", "php", "cgi", "tomcat"],
+            "https": ["http", "ssl", "apache", "web", "php", "cgi", "tomcat"],
+            "ftp": ["ftp", "vsftpd", "proftpd"],
+            "smb": ["samba", "smb", "nttrans", "trans2"],
+            "netbios-ssn": ["samba", "smb", "nttrans", "trans2"],
+            "microsoft-ds": ["samba", "smb", "ms17", "eternalblue"],
+            "mysql": ["mysql", "sql"],
+            "irc": ["irc", "unreal"],
+            "rpcbind": ["rpc", "nfs"],
+        }
+
+        for svc in exploitable:
+            host_ip = svc.get("host_ip", state["target"])
+            port = svc.get("port", 0)
+            svc_name = svc.get("name", "unknown").lower()
+            service_id = svc.get("node_id", f"service:{host_ip}:{port}/tcp")
+
+            keywords = _SERVICE_MODULE_KEYWORDS.get(svc_name, [svc_name])
+            for cand in validated_candidates:
+                module_path = cand.get("module_path", "")
+                mod_lower = module_path.lower()
+                # Match if any keyword is in the module path, or if
+                # module is a generic multi/ module (broad applicability)
+                is_relevant = (
+                    any(kw in mod_lower for kw in keywords)
+                    or "/multi/" in mod_lower
+                )
+                if is_relevant:
+                    llm_candidates.append(
+                        ExploitCandidate(
+                            module_path=module_path,
+                            service_id=service_id,
+                            target_ip=host_ip,
+                            target_port=port,
+                            payload=cand.get("payload", "generic/shell_reverse_tcp"),
+                            confidence=float(cand.get("confidence", 0.5)),
+                            source="llm",
+                        )
+                    )
+        # Clear candidates after consumption
+        state["exploit_candidates"] = []
+
+    # Combine auto-discovered candidates with LLM candidates.
+    # Auto-discovered candidates go FIRST — they include version-specific
+    # high-confidence matches that should be tried before LLM suggestions.
+    if llm_candidates is not None:
+        discovered = _exploit_agent._discover_candidates(state["target"])
+        # Merge: discovered first, then LLM (deduped)
+        existing_pairs = {(c.module_path, c.service_id) for c in discovered}
+        merged = list(discovered)
+        for llm_c in llm_candidates:
+            if (llm_c.module_path, llm_c.service_id) not in existing_pairs:
+                merged.append(llm_c)
+                existing_pairs.add((llm_c.module_path, llm_c.service_id))
+        llm_candidates = merged
+        logger.info(
+            "Combined auto-discovery with LLM candidates: %d total candidate(s)",
+            len(llm_candidates),
         )
 
     try:

@@ -1,0 +1,33 @@
+# Local Model Routing Configuration for PrivacyAware-PenAgent
+# ─────────────────────────────────────────────────────────────
+# Edit model tags here to swap models without touching router code.
+# Each entry maps a local_task_type to an Ollama model.
+#
+# Fields:
+#   name       — Human-readable model name (for logs/thesis)
+#   ollama_tag — Exact tag used in `ollama pull` / Ollama API calls
+#   role       — Description of what this model handles
+#   format     — Ollama output format: "json" for structured output, null for free-form
+#   timeout    — Per-request timeout in seconds
+
+local_models:
+  synthesis:
+    name: "Foundation-Sec-8B-Instruct"
+    ollama_tag: "hf.co/QuantFactory/Foundation-Sec-8B-GGUF:Q4_K_M"
+    role: "Vulnerability profiling, CVE analysis, exploit strategy reasoning"
+    format: null
+    timeout: 90
+
+  generation:
+    name: "Qwen2.5-Coder-14B"
+    ollama_tag: "qwen2.5-coder:14b"
+    role: "Structured JSON payload/script output for ExploitAgent"
+    format: "json"
+    timeout: 120
+
+  synthesis_fallback:
+    name: "WhiteRabbitNeo-v1.5a"
+    ollama_tag: "monotykamary/whiterabbitneo-v1.5a:latest"
+    role: "Fallback for offensive-security prompts when Foundation-Sec refuses"
+    format: null
+    timeout: 90

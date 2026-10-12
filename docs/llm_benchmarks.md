@@ -221,3 +221,41 @@ You've got a foothold on the system, and you've identified a command that can be
 - **Status:** FAILED
 - **Error:** `OpenAI API Key not configured`
 
+---
+
+## 3. Task-Aware 3-LLM Architecture (Post-Benchmark Update)
+
+> **Motivation:** Prompts 4 & 5 above reveal a critical gap — both `llama3:8b` and `mistral:7b` refuse offensive-security prompts with safety disclaimers. This makes them unsuitable as the sole local model for a penetration-testing agent.
+
+### 3.1 Refusal Problem
+
+| Model | Prompt 4 (EXPLOIT_SELECTION) | Prompt 5 (PRIV_ESC_REASONING) |
+|---|---|---|
+| `llama3:8b` | ❌ Refused outright | ✅ Answered (sensitivity scored high → CLOUD intended) |
+| `mistral:7b` | ❌ Refused / deflected | ✅ Answered partially |
+| `Foundation-Sec-8B` | ✅ Security-aware, offensive prompts OK | ✅ CVE-aware reasoning |
+| `WhiteRabbitNeo-v1.5a` | ✅ Fallback, fine-tuned for offensive-sec | ✅ Fallback |
+
+### 3.2 JSON Generation Problem
+
+`FORMAT_OUTPUT` (Prompt 1) shows `llama3:8b` wrapping JSON in prose ("Here is the formatted JSON array:") instead of raw JSON. `Qwen2.5-Coder-14B` with Ollama `format="json"` enforces strict JSON output — eliminating parse errors in ExploitAgent.
+
+### 3.3 Resulting Model Assignments
+
+| `local_task_type` | Model | Ollama Tag | Why |
+|---|---|---|---|
+| `synthesis` | Foundation-Sec-8B-Instruct | `hf.co/QuantFactory/Foundation-Sec-8B-GGUF:Q4_K_M` | Accepts offensive-security prompts; CVE/exploit strategy reasoning |
+| `generation` | Qwen2.5-Coder-14B | `qwen2.5-coder:14b` | Reliable structured JSON output for ExploitAgent |
+| `synthesis_fallback` | WhiteRabbitNeo-v1.5a | `monotykamary/whiterabbitneo-v1.5a:latest` | Secondary fallback when Foundation-Sec declines |
+
+### 3.4 Configuration
+
+All assignments are defined in [`src/config/models.yaml`](../src/config/models.yaml).
+To swap a model, edit the `ollama_tag` field — no Python code changes required.
+
+```bash
+# Pull all task-aware local models
+ollama pull hf.co/QuantFactory/Foundation-Sec-8B-GGUF:Q4_K_M
+ollama pull qwen2.5-coder:14b
+ollama pull monotykamary/whiterabbitneo-v1.5a:latest
+```

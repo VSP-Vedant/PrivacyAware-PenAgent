@@ -558,10 +558,11 @@ class MetasploitRPCClient:
                     pass
 
         # --- poll for session --------------------------------------------
-        # 60 s: Metasploitable2 exploits (vsftpd backdoor, samba/usermap_script,
-        # distcc_exec, etc.) can take 35-60 s to land a shell via RPC overhead.
+        # 120 s: buffer-overflow bruteforce exploits (trans2open, etc.) try
+        # many return address offsets and can take 90+ seconds to land a shell.
+        # Metasploitable2 exploits (vsftpd, samba/usermap_script) take 35-60 s.
         session_id = self._wait_for_session(
-            options.rhosts, timeout=60, prior_session_ids=prior_sessions
+            options.rhosts, timeout=120, prior_session_ids=prior_sessions
         )
 
         if session_id is not None:
@@ -760,15 +761,28 @@ class MetasploitRPCClient:
         return ""
 
     def _cleanup_stale_jobs(self) -> None:
-        """Stop any idle MSF background jobs/handlers to prevent port conflicts."""
+        """Stop stale MSF background multi/handler jobs to prevent LPORT conflicts.
+
+        Only kills explicit multi/handler listener jobs — never kills active
+        exploit or scanner jobs which may still be brute-forcing the target.
+        Previously this killed ALL jobs which prevented trans2open and other
+        brute-force exploits from catching their shells.
+        """
         try:
             raw = self._rpc("job.list")
+            # job.list returns {job_id: job_name_string}
             if isinstance(raw, dict):
-                for jid in list(raw.keys()):
-                    try:
-                        self._rpc("job.stop", str(jid))
-                    except Exception:
-                        pass
+                for jid, jname in raw.items():
+                    if isinstance(jname, bytes):
+                        jname = jname.decode()
+                    jname_str = str(jname).lower()
+                    # Only kill explicit multi/handler listeners — not running exploits
+                    if "exploit/multi/handler" in jname_str:
+                        try:
+                            self._rpc("job.stop", str(jid))
+                            logger.debug("Stopped stale handler job %s: %s", jid, jname)
+                        except Exception:
+                            pass
         except Exception:
             pass
 
@@ -794,27 +808,60 @@ class MetasploitRPCClient:
         timeout: int = 60,
         prior_session_ids: set[int] | None = None,
     ) -> int | None:
-        """Poll for a new session on *target* up to *timeout* seconds."""
+        """Poll for a new session on *target* up to *timeout* seconds.
+
+        Handles both reverse shells (target connects to us) and bind shells
+        (we connect to target). For bind shells, MSF's session_host may report
+        the attacker IP or have a different tunnel_peer format, so we use a
+        broader detection strategy:
+
+        1. Exact host match (standard reverse shells)
+        2. tunnel_peer contains target IP (covers bind shells and some meterpreters)
+        3. Any brand-new session not in prior snapshot (final fallback)
+        """
         deadline = time.monotonic() + timeout
         priors = prior_session_ids or set()
         while time.monotonic() < deadline:
             try:
                 raw = self._rpc("session.list")
                 if isinstance(raw, dict):
-                    # First check for newly spawned session not in prior snapshots
-                    for sid, info in raw.items():
-                        if isinstance(info, dict):
-                            host = self._extract_host_from_info(info)
-                            if host == target and int(sid) not in priors:
-                                return int(sid)
-                    # If priors was empty, check for any session on target
-                    if not priors:
-                        for sid, info in raw.items():
-                            if isinstance(info, dict):
-                                host = self._extract_host_from_info(info)
-                                if host == target:
-                                    return int(sid)
+                    new_sessions = [
+                        (int(sid), info)
+                        for sid, info in raw.items()
+                        if isinstance(info, dict) and int(sid) not in priors
+                    ]
+
+                    # Strategy 1: exact host match (reverse shells)
+                    for sid, info in new_sessions:
+                        host = self._extract_host_from_info(info)
+                        if host == target:
+                            logger.info(
+                                "Session %d matched target %s (exact host)", sid, target
+                            )
+                            return sid
+
+                    # Strategy 2: tunnel_peer contains target IP (bind shells)
+                    for sid, info in new_sessions:
+                        peer = info.get(b"tunnel_peer", info.get("tunnel_peer", ""))
+                        if isinstance(peer, bytes):
+                            peer = peer.decode()
+                        if target in str(peer):
+                            logger.info(
+                                "Session %d matched target %s (tunnel_peer)", sid, target
+                            )
+                            return sid
+
+                    # Strategy 3: any brand-new session as last resort
+                    # (handles edge cases where MSF doesn't populate host fields)
+                    if not priors and new_sessions:
+                        sid = new_sessions[0][0]
+                        logger.info(
+                            "Session %d accepted (no prior sessions, first available)", sid
+                        )
+                        return sid
+
             except Exception:
                 pass
             time.sleep(2)
         return None
+

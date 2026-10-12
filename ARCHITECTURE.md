@@ -43,10 +43,11 @@ Seven interconnected modules. All agent-to-agent communication flows through Lan
        ┌───────────┴──────────┐
        │                      │
 ┌──────▼──────┐      ┌───────▼──────┐
-│  LOCAL LLM   │      │  CLOUD LLM   │
+│  LOCAL LLMs  │      │  CLOUD LLM   │
 │  Ollama:     │      │  GPT-4o /    │
-│  Llama3 8B   │      │  Claude      │
-└──────────────┘      └──────────────┘
+│  Found-Sec / │      │  Claude      │
+│  Qwen Coder  │      └──────────────┘
+└──────────────┘
                     │
           ┌─────────▼──────────┐
           │  VERIFICATION &     │
@@ -188,22 +189,66 @@ class ReconResult:
 
 **Owner:** Prajyot (Member A)
 **File:** `src/router/llm_router.py`
-**Dependencies:** `src/router/sensitivity.py`, `src/router/complexity.py`
+**Dependencies:** `src/router/sensitivity.py`, `src/router/complexity.py`, `src/config/models.yaml`
 
-**Core Innovation:** Runtime routing between local and cloud LLMs.
+**Core Innovation:** Two-stage runtime routing — first between LOCAL vs CLOUD, then (if LOCAL) between task-specific Ollama models.
 
-**Decision Logic:**
+**Stage 1 — LOCAL vs CLOUD Decision:**
 
 ```python
-def route(task_input: str, task_type: TaskType) -> RoutingDecision:
+def route(task_input: str, task_type: TaskType, local_task_type: str = "synthesis") -> RoutingDecision:
     sensitivity = classify_sensitivity(task_input)
     complexity = classify_complexity(task_type)
 
-    if sensitivity > SENSITIVITY_THRESHOLD or complexity > COMPLEXITY_THRESHOLD:
+    if budget_exceeded:
+        return RoutingDecision(model=local_model_tag, route="LOCAL", local_task_type=local_task_type)
+    elif sensitivity >= SENSITIVITY_THRESHOLD or complexity >= COMPLEXITY_THRESHOLD:
         return RoutingDecision(model="gpt-4o", route="CLOUD")
     else:
-        return RoutingDecision(model="llama3:8b", route="LOCAL")
+        return RoutingDecision(model=local_model_tag, route="LOCAL", local_task_type=local_task_type)
 ```
+
+**Stage 2 — Task-Aware Local Model Selection:**
+
+When the decision is LOCAL, `_resolve_local_model(local_task_type)` reads `src/config/models.yaml` and selects the appropriate Ollama model:
+
+| `local_task_type` | Model | Ollama Tag | Use Case |
+|---|---|---|---|
+| `synthesis` | Foundation-Sec-8B-Instruct | `hf.co/QuantFactory/Foundation-Sec-8B-GGUF:Q4_K_M` | CVE analysis, vulnerability profiling, exploit strategy |
+| `generation` | Qwen2.5-Coder-14B | `qwen2.5-coder:14b` | Structured JSON payload output for ExploitAgent |
+| `synthesis_fallback` | WhiteRabbitNeo-v1.5a | `monotykamary/whiterabbitneo-v1.5a:latest` | Auto-fallback when Foundation-Sec refuses offensive prompts |
+
+**Full Routing Decision Flow:**
+
+```
+                    ┌─────────────────┐
+                    │  LLM Router     │
+                    │ sensitivity +   │
+                    │ complexity score │
+                    └────┬───────┬────┘
+                         │       │
+              score < θ  │       │  score ≥ θ
+              (LOCAL)    │       │  (CLOUD)
+                    ┌────▼────┐  │  ┌──────────┐
+                    │ Task    │  └──▶ GPT-4o / │
+                    │ Type?   │     │ Claude   │
+                    └──┬───┬──┘     └──────────┘
+          synthesis    │   │   generation
+              ┌────────▼┐ ┌▼────────────┐
+              │Found-Sec│ │Qwen2.5-Coder│
+              │  8B     │ │  14B (JSON) │
+              └────┬────┘ └─────────────┘
+          refusal? │
+              ┌────▼──────────┐
+              │WhiteRabbitNeo │
+              │   v1.5a       │
+              └───────────────┘
+```
+
+**Model Configuration (`src/config/models.yaml`):**
+- All model assignments live in YAML — swap Ollama tags without touching Python code
+- `LLMRouter` and `LLMClient` both call `load_model_config()` (from `settings.py`) at startup
+- Built-in Python defaults act as fallback if YAML is missing
 
 **Sensitivity Classifier** (`src/router/sensitivity.py`):
 - Regex/keyword scan for: raw IPs, credential patterns, session tokens, file paths, service banners
@@ -221,9 +266,9 @@ def route(task_input: str, task_type: TaskType) -> RoutingDecision:
   - `MULTI_CVE_CHAIN` → 1.0
 
 **Cost Tracking:**
-- Every routing decision logged with model, tokens, latency, cost
+- Every routing decision logged with `local_task_type`, model used, tokens, latency, cost
 - Per-run cloud token budget enforced (`MAX_CLOUD_TOKENS_PER_RUN`)
-- Budget exceeded → force local routing with degradation warning
+- Budget exceeded → force local routing with task-aware model selection
 
 ---
 
@@ -349,6 +394,8 @@ Generates structured report from attack graph:
 | Ollama over llama.cpp | llama.cpp | Ollama provides REST API, model management, easier GPU config; llama.cpp is faster but harder to integrate |
 | pymetasploit3 over subprocess | Direct msfconsole subprocess | Structured RPC is reliable; subprocess parsing of msfconsole is fragile |
 | Threshold-based routing | ML-based routing | Interpretable, tunable, auditable; ML routing requires labeled training data we don't have |
+| Task-aware 3-LLM local pool (Foundation-Sec / Qwen Coder / WhiteRabbitNeo) | Single local model (llama3:8b) | Specialised models outperform a single general model on security synthesis and structured JSON generation; YAML config allows hot-swap without code changes |
+| YAML model config (`models.yaml`) | Hardcoded model strings | Decouples model selection from router code; thesis ablation runs can swap models by editing one file |
 
 ---
 

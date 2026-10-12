@@ -48,27 +48,37 @@ OUTPUT FORMAT:
 EXPLOIT_SYSTEM_PROMPT = """You are a red team operator selecting Metasploit modules.
 
 CRITICAL RULES — violating any rule means your output is INVALID:
-1. module_path MUST be a valid Metasploit path in the exact format: exploit/CATEGORY/NAME
-   - Valid example: exploit/linux/local/sudo_baron_samedit
-   - Valid example: exploit/multi/handler
-   - Valid example: exploit/unix/ftp/vsftpd_234_backdoor
-   - INVALID: exploits/CVE-2021-3156  (CVE IDs are NOT module paths)
-   - INVALID: exploits/ CVE-2021-3156  (spaces are NOT allowed)
-   - INVALID: any path not starting with 'exploit/'
-2. Only recommend modules you are CERTAIN exist in Metasploit Framework.
-3. If you are not certain of the exact Metasploit module path, output fallback instead.
-4. Output ONLY raw JSON — no markdown, no explanation text.
+1. module_path MUST be a real, existing Metasploit module path in the exact format: exploit/PLATFORM/CATEGORY/NAME
+   - VALID examples:
+     exploit/linux/samba/trans2open
+     exploit/multi/samba/usermap_script
+     exploit/unix/ftp/vsftpd_234_backdoor
+     exploit/multi/http/tomcat_mgr_upload
+     exploit/unix/misc/distcc_exec
+     exploit/multi/handler
+   - INVALID examples:
+     exploit/multi/http/apache_mod_ssl_fork  (DOES NOT EXIST — do not invent modules)
+     exploit/multi/ssh/ssh_login  (ssh_login is auxiliary/scanner/ssh/ssh_login, NOT an exploit)
+     exploit/unix/samba/samba_usermap_script  (wrong path — correct is exploit/multi/samba/usermap_script)
+2. DO NOT invent or fabricate module paths. Only suggest modules you are certain exist in Metasploit Framework.
+   If you are unsure whether a module exists, set confidence_score below 0.3 or omit it entirely.
+3. Match modules to the correct service:
+   - SSH exploits → only for SSH services
+   - Samba/SMB exploits → only for SMB/netbios-ssn services
+   - HTTP exploits → only for HTTP/HTTPS services
+4. For legacy/old services, use the correct version-specific module:
+   - Samba 2.2.x → exploit/linux/samba/trans2open (NOT usermap_script which is for 3.0.20+)
+   - Samba 3.0.20-3.0.25 → exploit/multi/samba/usermap_script
+   - vsftpd 2.3.4 → exploit/unix/ftp/vsftpd_234_backdoor
+   - Apache mod_ssl < 2.8.7 → NO Metasploit module exists (use SearchSploit for OpenFuck)
+5. Output ONLY raw JSON — no markdown, no explanation text.
 
 INPUT:
 Service info: {service_info}
 CVE candidates: {cve_candidates}
 
-OUTPUT FORMAT (choose one):
-Option A — you know exact module paths:
-{"fallback": null, "recommendations": [{"module_path": "exploit/category/module_name", "recommended_payload": "linux/x64/shell_reverse_tcp", "confidence_score": 0.8}]}
-
-Option B — you are unsure of exact paths (PREFERRED if uncertain):
-{"fallback": "searchsploit", "query": "service-name version-number"}"""
+OUTPUT FORMAT:
+{{"fallback": null, "recommendations": [{{"module_path": "exploit/platform/category/module_name", "recommended_payload": "linux/x64/shell_reverse_tcp", "confidence_score": 0.8, "target_service": "service_name:port"}}]}}"""
 
 # ----------------------------------------------------------------------
 # LLM Router Classification Prompts

@@ -79,8 +79,62 @@ ALLOWED_TARGET_RANGES: list[str] = [
     "192.168.0.0/16",  # Local LAN / Metasploitable lab range
     "172.17.0.0/16",  # Docker containers
     "127.0.0.1/32",  # Localhost
+    "10.0.2.0/24" # Virtualbox internal network
 ]
 
 # ─── Logging ──────────────────────────────────────────────────────────────────
 
 LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO").upper()
+
+# ─── Local Model Config (models.yaml) ────────────────────────────────────────
+
+# Default model entries used when models.yaml is missing or unreadable.
+_DEFAULT_LOCAL_MODELS: dict[str, dict[str, object]] = {
+    "synthesis": {
+        "name": "Foundation-Sec-8B-Instruct",
+        "ollama_tag": "hf.co/QuantFactory/Foundation-Sec-8B-GGUF:Q4_K_M",
+        "role": "Vulnerability profiling, CVE analysis, exploit strategy reasoning",
+        "format": None,
+        "timeout": 90,
+    },
+    "generation": {
+        "name": "Qwen2.5-Coder-14B",
+        "ollama_tag": "qwen2.5-coder:14b",
+        "role": "Structured JSON payload/script output for ExploitAgent",
+        "format": "json",
+        "timeout": 120,
+    },
+    "synthesis_fallback": {
+        "name": "WhiteRabbitNeo-v1.5a",
+        "ollama_tag": "monotykamary/whiterabbitneo-v1.5a:latest",
+        "role": "Fallback for offensive-security prompts when Foundation-Sec refuses",
+        "format": None,
+        "timeout": 90,
+    },
+}
+
+
+def load_model_config() -> dict[str, dict[str, object]]:
+    """Load local model configuration from ``src/config/models.yaml``.
+
+    Returns:
+        A dict mapping ``local_task_type`` strings (e.g. ``"synthesis"``,
+        ``"generation"``) to their model metadata dicts.  Falls back to
+        built-in defaults when the YAML file is missing or ``pyyaml`` is
+        not installed.
+    """
+    yaml_path = Path(__file__).with_name("models.yaml")
+    try:
+        import yaml  # Optional dependency — graceful fallback below.
+
+        with open(yaml_path, "r") as fh:
+            data = yaml.safe_load(fh)
+        models = data.get("local_models", {})
+        if models:
+            return dict(models)
+    except FileNotFoundError:
+        pass
+    except Exception:  # pragma: no cover — pyyaml missing or parse error
+        pass
+
+    return dict(_DEFAULT_LOCAL_MODELS)

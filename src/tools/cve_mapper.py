@@ -162,7 +162,82 @@ _KNOWN_CVES: list[dict[str, Any]] = [
             },
         ],
     },
-    # SMB / Samba
+    # OpenSSH legacy (< 3.x) — Kioptrix Level 1 has OpenSSH 2.9p2
+    {
+        "service_pattern": r"^ssh$",
+        "product_pattern": r"OpenSSH",
+        "version_pattern": r"^[12]\.",
+        "cves": [
+            {
+                "cve_id": "CVE-2002-0640",
+                "cvss_score": 10.0,
+                "description": "OpenSSH 2.3.1-3.3 challenge-response buffer overflow RCE",
+            },
+            {
+                "cve_id": "CVE-2003-0386",
+                "cvss_score": 7.5,
+                "description": "OpenSSH < 3.6.2 source IP access control bypass via reverse DNS",
+            },
+        ],
+    },
+    # Apache httpd 1.3.x — Kioptrix Level 1 has Apache 1.3.20
+    {
+        "service_pattern": r"^https?$",
+        "product_pattern": r"Apache",
+        "version_pattern": r"^1\.3\.",
+        "cves": [
+            {
+                "cve_id": "CVE-2002-0082",
+                "cvss_score": 10.0,
+                "description": "Apache mod_ssl < 2.8.7 OpenFuck buffer overflow RCE (no MSF module — standalone C exploit)",
+            },
+            {
+                "cve_id": "CVE-2002-0392",
+                "cvss_score": 7.5,
+                "description": "Apache 1.3.x chunked transfer encoding memory corruption",
+            },
+        ],
+    },
+    # mod_ssl detected via HTTPS product string (e.g. "Apache/1.3.20 ... mod_ssl/2.8.4")
+    {
+        "service_pattern": r"^https?$",
+        "product_pattern": r"mod_ssl",
+        "version_pattern": r".*",
+        "cves": [
+            {
+                "cve_id": "CVE-2002-0082",
+                "cvss_score": 10.0,
+                "description": "Apache mod_ssl < 2.8.7 OpenFuck buffer overflow RCE",
+            },
+        ],
+    },
+    # SMB / Samba — version-specific: Samba 2.2.x (trans2open)
+    {
+        "service_pattern": r"^(microsoft-ds|smb|netbios-ssn)$",
+        "product_pattern": r"Samba",
+        "version_pattern": r"^2\.[02]\.",
+        "cves": [
+            {
+                "cve_id": "CVE-2003-0201",
+                "cvss_score": 10.0,
+                "description": "Samba 2.2.x trans2open buffer overflow RCE (exploit/linux/samba/trans2open)",
+            },
+        ],
+    },
+    # SMB / Samba — version-specific: Samba 3.0.20-3.0.25 (usermap_script)
+    {
+        "service_pattern": r"^(microsoft-ds|smb|netbios-ssn)$",
+        "product_pattern": r"Samba",
+        "version_pattern": r"^3\.0\.(2[0-5])",
+        "cves": [
+            {
+                "cve_id": "CVE-2007-2447",
+                "cvss_score": 10.0,
+                "description": "Samba 3.0.20-3.0.25rc3 username map script command injection (exploit/multi/samba/usermap_script)",
+            },
+        ],
+    },
+    # SMB / Samba — generic catch-all for any Samba/Windows version
     {
         "service_pattern": r"^(microsoft-ds|smb|netbios-ssn)$",
         "product_pattern": r"(Samba|Windows)",

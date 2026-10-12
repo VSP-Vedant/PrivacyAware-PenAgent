@@ -87,6 +87,63 @@ ollama pull mistral:7b-instruct-v0.3-q4_K_M
 curl http://localhost:11434/api/tags  # verify
 ```
 
+#### Task-Aware Local Model Routing
+
+> **Thesis reference:** The LLM router uses a *task-aware model pair* for local
+> execution instead of a single model. This improves both vulnerability reasoning
+> quality and structured output reliability for ExploitAgent.
+
+When the router decides on **LOCAL** execution (sensitivity < 0.6 AND complexity < 0.7,
+or cloud budget exceeded), it further selects which Ollama model to use based on
+`local_task_type`:
+
+| Task Type | Model | Ollama Tag | Purpose |
+|-----------|-------|------------|---------|
+| `synthesis` | Foundation-Sec-8B-Instruct | `hf.co/QuantFactory/Foundation-Sec-8B-GGUF:Q4_K_M` | CVE analysis, vulnerability profiling, exploit strategy reasoning |
+| `generation` | Qwen2.5-Coder-14B | `qwen2.5-coder:14b` | Structured JSON output for ExploitAgent (uses Ollama `format="json"`) |
+| `synthesis_fallback` | WhiteRabbitNeo-v1.5a | `monotykamary/whiterabbitneo-v1.5a:latest` | Automatic fallback when Foundation-Sec refuses offensive-security prompts |
+
+**Pull all required models:**
+
+```bash
+ollama pull hf.co/QuantFactory/Foundation-Sec-8B-GGUF:Q4_K_M
+ollama pull qwen2.5-coder:14b
+ollama pull monotykamary/whiterabbitneo-v1.5a:latest
+```
+
+**Routing decision flow:**
+
+```
+                    ┌─────────────────┐
+                    │  LLM Router     │
+                    │ sensitivity +   │
+                    │ complexity score │
+                    └────┬───────┬────┘
+                         │       │
+              score < θ  │       │  score ≥ θ
+              (LOCAL)    │       │  (CLOUD)
+                    ┌────▼────┐  │  ┌──────────┐
+                    │ Task    │  └──▶ GPT-4o / │
+                    │ Type?   │     │ Claude   │
+                    └──┬───┬──┘     └──────────┘
+          synthesis    │   │   generation
+              ┌────────▼┐ ┌▼────────────┐
+              │Found-Sec│ │Qwen2.5-Coder│
+              │  8B     │ │  14B (JSON) │
+              └────┬────┘ └─────────────┘
+          refusal? │
+              ┌────▼──────────┐
+              │WhiteRabbitNeo │
+              │   v1.5a       │
+              └───────────────┘
+```
+
+**Configuration:** Model assignments are defined in [`src/config/models.yaml`](src/config/models.yaml).
+To swap a model, edit the `ollama_tag` field — no Python code changes required.
+
+Each routing decision is logged with `local_task_type`, `model_used`, and
+`sensitivity_score` for reproducibility in thesis post-mortem analysis.
+
 ### 3. Metasploit RPC
 
 ```bash

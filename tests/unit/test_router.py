@@ -1,7 +1,8 @@
 """Unit tests for the LLM Router.
 
 This test suite verifies the decision coordination of the router under various
-sensitivity, complexity, budget, and override scenarios.
+sensitivity, complexity, budget, and override scenarios, including task-aware
+local model selection.
 """
 
 from __future__ import annotations
@@ -19,14 +20,46 @@ def test_router_local_decision() -> None:
     # Default thresholds: sensitivity 0.6, complexity 0.7
     router = LLMRouter()
 
-    # Low sensitivity input, low complexity task
+    # Low sensitivity input, low complexity task — defaults to synthesis model
     decision = router.route(
         task_input="Format ports list: 22, 80",
         task_type=TaskType.FORMAT_OUTPUT,
     )
     assert decision.route == "LOCAL"
-    assert decision.model == "llama3:8b"
+    # Default local_task_type is "synthesis" → Foundation-Sec model
+    assert "Foundation-Sec" in decision.model or "QuantFactory" in decision.model
+    assert decision.local_task_type == "synthesis"
     assert "Local route selected" in decision.reasoning
+
+
+def test_router_local_generation_task() -> None:
+    """Test routing to LOCAL with local_task_type='generation' selects Qwen."""
+    router = LLMRouter()
+
+    decision = router.route(
+        task_input="Format ports list: 22, 80",
+        task_type=TaskType.FORMAT_OUTPUT,
+        local_task_type="generation",
+    )
+    assert decision.route == "LOCAL"
+    assert "qwen2.5-coder" in decision.model.lower()
+    assert decision.local_task_type == "generation"
+    # Config entry should have format=json
+    assert decision.model_config_entry.get("format") == "json"
+
+
+def test_router_local_synthesis_task() -> None:
+    """Test routing to LOCAL with local_task_type='synthesis' selects Foundation-Sec."""
+    router = LLMRouter()
+
+    decision = router.route(
+        task_input="Format ports list: 22, 80",
+        task_type=TaskType.FORMAT_OUTPUT,
+        local_task_type="synthesis",
+    )
+    assert decision.route == "LOCAL"
+    assert "Foundation-Sec" in decision.model or "QuantFactory" in decision.model
+    assert decision.local_task_type == "synthesis"
 
 
 def test_router_cloud_sensitivity_decision() -> None:
@@ -41,6 +74,8 @@ def test_router_cloud_sensitivity_decision() -> None:
     assert decision.route == "CLOUD"
     assert decision.model == "gpt-4o"
     assert "Cloud route selected" in decision.reasoning
+    # Cloud routes retain local_task_type for no-key local fallthrough
+    assert decision.local_task_type == "synthesis"
 
 
 def test_router_cloud_complexity_decision() -> None:
@@ -66,14 +101,30 @@ def test_router_budget_exceeded_fallback() -> None:
     cost_tracker.add_run(model="gpt-4o", input_tokens=50, output_tokens=60)
     assert cost_tracker.is_budget_exceeded()
 
-    # Even though task is highly complex, budget forces LOCAL
+    # Even though task is highly complex, budget forces LOCAL with generation model
+    decision = router.route(
+        task_input="Check path escalation option",
+        task_type=TaskType.PRIV_ESC_REASONING,
+        local_task_type="generation",
+    )
+    assert decision.route == "LOCAL"
+    assert "qwen2.5-coder" in decision.model.lower()
+    assert decision.local_task_type == "generation"
+    assert "Forced local" in decision.reasoning
+
+
+def test_router_budget_exceeded_defaults_to_synthesis() -> None:
+    """Budget-forced LOCAL without explicit local_task_type defaults to synthesis."""
+    cost_tracker = CostTracker(max_cloud_tokens=100)
+    router = LLMRouter(cost_tracker=cost_tracker)
+    cost_tracker.add_run(model="gpt-4o", input_tokens=50, output_tokens=60)
+
     decision = router.route(
         task_input="Check path escalation option",
         task_type=TaskType.PRIV_ESC_REASONING,
     )
     assert decision.route == "LOCAL"
-    assert decision.model == "llama3:8b"
-    assert "Forced local" in decision.reasoning
+    assert decision.local_task_type == "synthesis"
 
 
 def test_router_force_override() -> None:
@@ -85,9 +136,11 @@ def test_router_force_override() -> None:
         task_input="Check path escalation option",
         task_type=TaskType.PRIV_ESC_REASONING,
         force_route="LOCAL",
+        local_task_type="generation",
     )
     assert decision_local.route == "LOCAL"
-    assert decision_local.model == "llama3:8b"
+    assert "qwen2.5-coder" in decision_local.model.lower()
+    assert decision_local.local_task_type == "generation"
 
     # Simple task, but force_route CLOUD overrides decision
     decision_cloud = router.route(
@@ -115,3 +168,18 @@ def test_router_custom_thresholds_from_env() -> None:
         assert router.complexity_threshold == 0.1
         assert router.local_model == "mistral:7b"
         assert router.cloud_model == "gpt-4o-mini"
+
+
+def test_routing_decision_has_model_config_entry() -> None:
+    """Test that LOCAL decisions include model_config_entry metadata."""
+    router = LLMRouter()
+
+    decision = router.route(
+        task_input="test",
+        task_type=TaskType.SUMMARIZE,
+        local_task_type="generation",
+    )
+    assert decision.route == "LOCAL"
+    assert decision.model_config_entry
+    assert "name" in decision.model_config_entry
+    assert "role" in decision.model_config_entry

@@ -52,9 +52,7 @@ def aggregate_by_condition(records: list[dict[str, Any]]) -> dict[str, dict[str,
         mean_pr = float(np.mean(prs)) if prs else 0.0
 
         ttfss: list[float] = [
-            float(r["ttfs_seconds"])
-            for r in recs
-            if r.get("ttfs_seconds") is not None
+            float(r["ttfs_seconds"]) for r in recs if r.get("ttfs_seconds") is not None
         ]
         mean_ttfs = float(np.mean(ttfss)) if ttfss else None
 

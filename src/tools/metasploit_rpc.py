@@ -847,7 +847,9 @@ class MetasploitRPCClient:
                             peer = peer.decode()
                         if target in str(peer):
                             logger.info(
-                                "Session %d matched target %s (tunnel_peer)", sid, target
+                                "Session %d matched target %s (tunnel_peer)",
+                                sid,
+                                target,
                             )
                             return sid
 
@@ -856,7 +858,8 @@ class MetasploitRPCClient:
                     if not priors and new_sessions:
                         sid = new_sessions[0][0]
                         logger.info(
-                            "Session %d accepted (no prior sessions, first available)", sid
+                            "Session %d accepted (no prior sessions, first available)",
+                            sid,
                         )
                         return sid
 
@@ -864,4 +867,3 @@ class MetasploitRPCClient:
                 pass
             time.sleep(2)
         return None
-

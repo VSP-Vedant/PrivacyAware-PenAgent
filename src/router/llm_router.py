@@ -116,7 +116,8 @@ class LLMRouter:
         )
 
     def _resolve_local_model(
-        self, local_task_type: str | None,
+        self,
+        local_task_type: str | None,
     ) -> tuple[str, str, dict[str, Any]]:
         """Pick the Ollama model tag and human name for a local_task_type.
 

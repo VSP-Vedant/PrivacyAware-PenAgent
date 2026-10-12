@@ -210,8 +210,8 @@ def test_cloud_route_no_key_uses_task_aware_model_not_cloud_name(
         sensitivity=1.0,
         complexity=1.0,
         reasoning="Cloud route: complexity >= threshold",
-        local_task_type="generation",   # orchestrator always sets this
-        model_config_entry={},          # empty — as it is for CLOUD decisions
+        local_task_type="generation",  # orchestrator always sets this
+        model_config_entry={},  # empty — as it is for CLOUD decisions
     )
 
     with patch("src.router.llm_client.OPENAI_API_KEY", ""):
@@ -230,4 +230,4 @@ def test_cloud_route_no_key_uses_task_aware_model_not_cloud_name(
                 f"got {sent_data['model']!r}, expected qwen2.5-coder:14b"
             )
             assert sent_data["model"] == "qwen2.5-coder:14b"
-            assert sent_data.get("format") == "json"   # generation task → JSON mode
+            assert sent_data.get("format") == "json"  # generation task → JSON mode

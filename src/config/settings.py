@@ -79,7 +79,7 @@ ALLOWED_TARGET_RANGES: list[str] = [
     "192.168.0.0/16",  # Local LAN / Metasploitable lab range
     "172.17.0.0/16",  # Docker containers
     "127.0.0.1/32",  # Localhost
-    "10.0.2.0/24" # Virtualbox internal network
+    "10.0.2.0/24",  # Virtualbox internal network
 ]
 
 # ─── Logging ──────────────────────────────────────────────────────────────────
@@ -125,7 +125,7 @@ def load_model_config() -> dict[str, dict[str, object]]:
     """
     yaml_path = Path(__file__).with_name("models.yaml")
     try:
-        import yaml  # Optional dependency — graceful fallback below.
+        import yaml  # type: ignore[import-untyped]  # Optional dependency — graceful fallback below.
 
         with open(yaml_path, "r") as fh:
             data = yaml.safe_load(fh)

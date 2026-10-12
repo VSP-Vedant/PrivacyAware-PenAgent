@@ -395,7 +395,7 @@ def exploit_node(state: PenTestState) -> PenTestState:
 
         # ── Pre-validate LLM modules against MSF ─────────────────────
         # This catches hallucinated paths BEFORE they waste attempt budget.
-        validated_candidates: list[dict] = []
+        validated_candidates: list[dict[str, Any]] = []
         for cand in raw_candidates:
             module_path = cand.get("module_path", "")
             if not module_path:
@@ -445,8 +445,7 @@ def exploit_node(state: PenTestState) -> PenTestState:
                 # Match if any keyword is in the module path, or if
                 # module is a generic multi/ module (broad applicability)
                 is_relevant = (
-                    any(kw in mod_lower for kw in keywords)
-                    or "/multi/" in mod_lower
+                    any(kw in mod_lower for kw in keywords) or "/multi/" in mod_lower
                 )
                 if is_relevant:
                     llm_candidates.append(

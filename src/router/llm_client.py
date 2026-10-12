@@ -98,7 +98,10 @@ class LLMClient:
     # ── Cloud providers ───────────────────────────────────────────────────────
 
     def _call_openai(
-        self, model: str, prompt: str, decision: RoutingDecision | None = None,
+        self,
+        model: str,
+        prompt: str,
+        decision: RoutingDecision | None = None,
     ) -> str:
         """Call OpenAI Chat Completions API.
 
@@ -139,7 +142,10 @@ class LLMClient:
             return self._call_ollama(OLLAMA_MODEL_LOCAL, prompt, force_json=True)
 
     def _call_anthropic(
-        self, model: str, prompt: str, decision: RoutingDecision | None = None,
+        self,
+        model: str,
+        prompt: str,
+        decision: RoutingDecision | None = None,
     ) -> str:
         """Call Anthropic Messages API.
 
@@ -210,7 +216,7 @@ class LLMClient:
             or OLLAMA_MODEL_LOCAL
         )
         use_json = str(config_entry.get("format", "")).lower() == "json"
-        timeout = int(config_entry.get("timeout", 90))
+        timeout = int(str(config_entry.get("timeout", 90)))
 
         logger.info(
             "Task-aware Ollama dispatch",
@@ -243,7 +249,7 @@ class LLMClient:
                     "ollama_tag", "monotykamary/whiterabbitneo-v1.5a:latest"
                 )
             )
-            fallback_timeout = int(fallback_entry.get("timeout", 90))
+            fallback_timeout = int(str(fallback_entry.get("timeout", 90)))
             logger.warning(
                 "Synthesis model refused/empty — retrying with fallback model %s",
                 fallback_model,
